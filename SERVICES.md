@@ -1,22 +1,22 @@
-# Process ownership
+# Temporary ownership
 
-No daemon, MCP server, scheduler or Supervisor job is installed.
+No daemon, MCP, scheduler or Supervisor job is installed.
 
-One CLI run owns a temporary loopback Mihomo through network-manager's
-`startManagedProxy({route:'att', serveSeconds:1200})`. It never reloads resident
-Clash. Startup failure or an absent ATT source stops collection; there is no
-direct fallback. The provider owner validates and renders its private ATT input.
+Each CLI run owns one `startManagedProxy({route:'att',serveSeconds:180})` session.
+It does not reload resident Clash or inspect an IP to prove routing. The existing
+network-manager owner validates ATT input and the loopback listener; browser
+launches bind explicitly to that listener with no fallback.
 
-Browser sources run sequentially with a fresh native headless Chrome and
-private profile per site. The myutils owner enforces an independent deadline
-and removes its own process/profile on close or parent loss. The collector
-awaits close before proceeding. No personal browsing process is terminated.
+Up to three independent native headless Chrome owners run concurrently, each
+with a fresh private profile, 15-second startup bound and independent 45-second
+lifetime. Each page collector has a 15-second deadline and closes its own page.
+The collector awaits every result and Chrome cleanup before closing ATT. Parent
+loss is handled by the shared native owner; a cleanup rejection is fatal.
 
-SIGINT/SIGTERM aborts the current run, closes its Chrome/ATT owners and writes
-completed and cancelled rows. Hard host termination cannot promise a final
-report; owner timeouts still bound temporary process lifetimes.
+SIGINT/SIGTERM cancels pending work, preserves completed rows and awaits owned
+cleanup. Hard host termination cannot guarantee a final report. Never kill a
+personal browser or unrelated proxy to clean this run.
 
-Private runtime directories: `.state/` and `reports/`, both ignored and `0700`;
-report files are `0600`. Finished reports are retained for the user's review;
-no automatic retention task is installed. An existing unsafe/symlink report
-directory is rejected rather than silently changed.
+`.state/` and `reports/` are ignored, owned real directories at mode `0700`;
+report files are `0600`. Unsafe existing directories/symlinks are rejected.
+Reports remain for review; there is no automatic retention job.

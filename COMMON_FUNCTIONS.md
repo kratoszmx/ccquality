@@ -1,24 +1,21 @@
-# Direct APIs and ownership
+# Implementation and direct shared APIs
 
 | Owner | API / caller | Contract |
 | --- | --- | --- |
-| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Exact source selection, unknown IDs rejected before network |
-| `src/evidence.mjs` | `parseHttp`, `parseBrowser` → collectors | Source-specific schema/score validation; explicit unknowns and lineage |
-| `src/evidence.mjs` | `evaluate`, `renderMarkdown` → collector/CLI | Cross-source conflicts and masked comparison; no composite ban score |
-| `src/browser.mjs` | `requestAllowed`, `detectionComplete`, `collectBrowser` | Website workflow, native controls, bounded text, route/request policy and cleanup |
-| `src/collect.mjs` | `collect` → CLI | ATT lifetime, sequential observations, cancellation, final exit check, cleanup truth |
-| myutils `@myutils/web-text/http-text` | `fetchTextUrl` → HTTP collector | Explicit proxy, bounded GET, text extraction, no alternate route |
-| myutils `@myutils/browser-session/chrome` | `launchChromeSession` → browser collector | Fresh native Chrome, independent owner deadline, profile/process cleanup |
-| network-manager `lib/managed-proxy.mjs` | `startManagedProxy` → collector | ATT-only loopback readiness, owned Mihomo, bounded lifetime and awaited close |
+| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Three fixed local-check sources; reject unknown/retired IDs before network |
+| `src/browser.mjs` | `requestAllowed`, `detectionComplete`, `collectPage` | Static-only website policy, native local scan, per-page deadline/cancellation and awaited cleanup |
+| `src/evidence.mjs` | `FEATURES`, `baseRow`, `parseBrowser`, `maskText` | Per-provider result schemas, bounded component points/weights and explicit missing values |
+| `src/report.mjs` | `matrix`, `renderTerminal`, `renderMarkdown`, `renderHtml` | One provider-column matrix across ANSI, Markdown and self-contained HTML |
+| `src/report.mjs` | `terminalWidth` → terminal renderer | Width of sanitized text including padding; ASCII/combining/CJK alignment for this report |
+| `src/collect.mjs` | `collect` → CLI | Parallel native owners, one ATT lifecycle, ordered results, failure/cancellation and cleanup truth |
+| myutils `@myutils/browser-session/chrome` | `launchChromeSession` → collector | Fresh native Chrome, explicit route, independent process/profile owner and deadline |
+| network-manager `lib/managed-proxy.mjs` | `startManagedProxy` → collector | Isolated ATT loopback readiness, owned Mihomo and awaited close |
 
-There is no wrapper namespace or forwarded CLI. Business schemas, website
-selectors and reporting stay here. Generic HTTP/browser ownership remains in
-myutils; ATT configuration and lifecycle remain in network-manager.
+No generic forwarding namespace or custom browser launcher exists. Website
+selectors, request permission, scoring semantics and rendering are project logic;
+generic process/profile ownership remains in its existing shared library.
+The former HTTP-only dependency and parser are removed.
 
-The collector accepts injected transport/lifecycle dependencies for offline tests.
-They are internal test seams, not CLI-provided modules, executables or proxy URLs.
-
-Sibling layout is intentional: from this worktree's parent hierarchy,
-`../../myutils` and `../../managers/network-manager` are the maintained owners.
-Do not copy them into this repository. Their current documented installation
-and test contracts apply when those owners change.
+Sibling layout is intentional: `../../myutils` and
+`../../managers/network-manager` are the maintained owners. Test-only injected
+dependencies do not become user-provided CLI executables, URLs or modules.

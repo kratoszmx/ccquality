@@ -1,82 +1,59 @@
-# Evidence contracts
+# Provider contracts
 
-The normal run collects eight checker websites plus independent egress,
-geography and official-policy evidence. `src/catalog.mjs` owns the exact catalog.
-The network disclosure is printed without `--run`; a run sends the ATT exit IP
-to each selected provider and potentially the website's public data suppliers.
-There are no API credentials, subscriptions or paid lookups.
+Exactly three Claude-related pages are collected. No independent IP lookup or
+direct Claude/Anthropic request is part of this project. All allowed website
+requests use the isolated ATT proxy; ordinary page requests expose that connection
+to the selected website. No API credentials, subscription or paid query is used.
 
-## Website interpretation
-
-| Site | Measured surface | Interpretation |
+| Provider | Native action | Reported local items |
 | --- | --- | --- |
-| CheckCC | Native page, automatic target, actual start controls | Percent retained as a heuristic index. Pending detection is incomplete. Conflicting AT&T/Cloudflare ASNs are flagged rather than treated as a bad exit. |
-| FuckClaude | Public `/api/check?format=json` | Server estimate, not a local browser scan. Its timezone is inferred from egress; no Accept-Language is supplied. Coverage and missing language remain explicit. |
-| Claude Test | Environment page, explicit scan | Problem index, lower is better. WebRTC, DNS leak, local-system helper and login-marker checks are disabled using native settings. Missing checks remain unknown. |
-| CleanIP | Claude page, explicit scan | Reports observed routing even when no numeric total or IP intelligence is available. Allows one native anonymous token handshake and one batch query containing only the observed ATT IP. Its “direct” probe also uses ATT in this collector. |
-| PING IP | Automatic page report | Safety score, **higher** is better; confidence is separate. AbuseIPDB-like values come from PING IP's aggregator, not a direct owned-key lookup. Optional account questionnaire stays unanswered. |
-| AIZX | Nine local browser signals, explicit scan | Chinese-environment feature index, not IP reputation. No optional network scan. Adapted from FuckClaude; not independent corroboration. |
-| Am I China Flagged | Public HTTP JSON | Mainland country/header resemblance only; not all supported countries or an account status check. Missing language is not a favorable local-language result. |
-| IPBook | Automatic page report | Its risk index and trust score stay separate. “No WebRTC leak” is not accepted when WebRTC was disabled. Claimed six upstream datasets are not six independent measurements by this project. |
+| [Claude Test](https://claudetest.app/tools/environment/) | Disable all nine network/helper options, click `#scan` | Combined Chinese/region signal and this page's storage support. Its combined language/timezone/font finding is not split into individual verdicts. |
+| [AIZX](https://aizx.ai/tools/claude-region) | Click `开始检测`; no optional network check | Timezone, language, Chinese fonts, vendor fonts, browser/WebView, device brand, Intl locale, offset, Emoji. |
+| [FuckClaude](https://fuck-claude.vercel.app/) | Click `#retest` on the native page, not `/api/check` | Nine local items matching AIZX's dimensions, with different weights. Its WebRTC item is deliberately excluded. |
 
-CleanIP also documents derivation from FuckClaude for some local signals. Shared
-methodology does not mean identical implementation or scores. IPWHOIS/ipapi data
-may also appear inside website aggregators; do not vote or average them.
+AIZX documents derivation from FuckClaude. Agreement between them is not
+independent corroboration. We execute native page scans and parse their visible
+results; no source implementation is copied. Website advice and news are not
+instructions and are not treated as verified Anthropic rules.
 
-## Network and first-party context
+## Values and color
 
-- Cloudflare, ipify, IPWHOIS and ipapi.is observe the requester independently.
-  All requests pass an explicit ATT proxy. Public IPv4/schema checks precede
-  cross-source matching; invalid addresses cannot establish route consistency.
-- Anonymous `claude.ai/cdn-cgi/trace` and `api.anthropic.com/cdn-cgi/trace` read
-  edge transport evidence with no login. HTTP 200/TLS success is not App success,
-  authorization, eligibility or suspension status.
-- The official [supported-location help page](https://support.claude.com/en/articles/8461763-where-can-i-access-claude)
-  is read live. Only its bounded country list is parsed; text in a footer cannot
-  grant support. The current implementation explicitly interprets US matches;
-  other exits retain their country evidence without an invented eligibility verdict.
-- Anonymous ipapi.is currently offers a reduced schema. Missing proxy/VPN/Tor/
-  hosting/abuse flags are null. IPWHOIS geography also does not establish reputation.
-- City databases can disagree within one country/ASN. No physical-location claim
-  or “residential guarantees safety” inference is made.
-- No raw TCP/DNS scan, mail probe, direct IPv6 leak test or service-health account
-  probe is performed. Website IPv6 outcomes belong to the isolated browser route.
+- Preserve each source's numeric contribution and denominator. Zero is green
+  only when the completed source explicitly provides a valid zero for that item.
+  Positive points or an explicit abnormal verdict are red. Absent fields,
+  malformed scores, unknown weight versions and incomplete scans stay grey.
+- Display the original total as neutral context. Different weights and missing
+  checks make totals incomparable; do not average them or infer a ban probability.
+- Claude Test's overall coverage includes intentionally disabled network checks;
+  it is not a coverage estimate for this project's local-only matrix.
+- FuckClaude currently reports disabled WebRTC as `no leak detected`. This
+  collector rejects that conclusion. Its original total is retained with this
+  limitation, without inventing a revised score.
+- Readiness requires the native result marker. A readable homepage or transient
+  zero is not completion. A failed source stays visible alongside successful peers.
 
-## Collection and failure model
+## Request policy and speed
 
-`measured` means the source-specific schema produced evidence, not a clean bill
-of health. `partial` retains a valid result with known scope gaps. `unknown`,
-`incomplete`, `unavailable`, `blocked`, `rate_limited`, `not_run` and `cancelled`
-never turn into zero risk. A readable homepage cannot become a completed test.
+`src/browser.mjs` allows same-origin GET documents/assets, plus exact static
+`/rules/context-v3.json` and `/rules/network-v5.json` on Claude Test. The rules
+contain scoring context, not a request for the user's IP. Other fetch/XHR,
+POST, trace/DNS probes, external origins, WebSockets and service workers are
+blocked. Assets needed for local font/rendering checks are preserved.
 
-Each HTTP request has a 25-second deadline and 1 MiB response limit. Each browser
-site has a 60-second collection window and independent 75-second native owner
-lifetime. Source scans are sequential; browser reads poll local DOM, not reload
-the site. The request budget is 500 per site; observed HTTP 429 blocks further
-requests to that host. CleanIP's two exact native POSTs validate keys/body bounds,
-same-origin frame and single use; batch queries require the prior Cloudflare IP.
-No proof is synthesized and no token/cookie is exported. DNS-start and telemetry
-POSTs remain blocked. No collector retry or route fallback exists. Websites
-may internally retry their own GET requests within that bounded session.
+Each source gets a fresh native headless Chrome and a 15-second page deadline.
+All three sources run in parallel on the same owned ATT proxy. No page reload,
+collector retry or alternate route is used. AIZX has a short hydration wait
+before clicking its server-rendered control. Claude Test's dynamic controls must
+exist before settings are changed. Original Mac language/timezone are preserved.
 
-Chrome uses a new private profile, native language/timezone and explicit ATT.
-No pre-existing cookies or settings are loaded. Ordinary rendering assets remain
-enabled, because image requests can be a site's reachability probes. Explicit
-downloads are cancelled; local-font observations remain test-browser observations.
-The selected source IDs and URL list are not user-supplied arbitrary targets.
+## Removed scope
 
-Reports retain source time and request failures. A final Cloudflare trace, when
-selected, checks the exit again. Agreement is a bounded observation, not proof
-that an exit can never rotate. A cleanup failure makes the CLI fail and remains
-visible in JSON. SIGINT/SIGTERM preserves completed rows and marks unrun rows.
+Cloudflare/ipify/IPWHOIS/ipapi, official region-list fetches, anonymous Claude/API
+trace, HTTP-only FuckClaude/Am I China Flagged, CleanIP and IPBook are removed.
+PING IP primarily duplicates IP intelligence, so is removed too. CheckCC's broad
+network workflow and unfinished 60-second result are outside this fast local
+scope. Old IDs are rejected rather than quietly triggering obsolete probes.
 
-## Research references
-
-- [CheckCC source](https://github.com/yacuo/check-cc)
-- [FuckClaude source](https://github.com/LinXiaoTao/FuckClaude)
-- [AIZX methodology](https://aizx.ai/tools/claude-region)
-- [Official safeguards and appeals](https://support.claude.com/en/articles/8241253-safeguards-warnings-and-appeals)
-
-No third-party repair code is downloaded or executed. Pages run their normal
-JavaScript in an isolated Chrome session under this project's request policy;
-their text is evidence, never an instruction source.
+The App, its actual routing/fingerprint, account status, payment, identity and
+usage history remain unmeasured. Inspecting a fresh Chrome is not inspecting the
+App; no website score changes that boundary.

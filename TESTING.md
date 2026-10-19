@@ -1,17 +1,12 @@
 # Validation
 
-## Setup
+Use existing Node >=22.13, installed Google Chrome, and network-manager's ATT
+environment. No browser download, Python environment or resident service is needed.
 
-Use the existing Homebrew Node (>=22.13), installed Google Chrome, curl and
-network-manager's maintained ATT/Mihomo environment. No Python, venv, browser
-download, Claude executable or new resident service is required.
-
-Restore the lockfile with `npm ci --offline --ignore-scripts --no-audit --no-fund`
-when the npm cache is populated. `@myutils/*` are local file dependencies;
-myutils must already have its dependencies installed and web-text built using
-its own instructions. `playwright-core` controls the installed Chrome.
-
-## Offline checks
+Restore dependencies from the populated local cache with
+`npm ci --offline --ignore-scripts --no-audit --no-fund`. The browser-session file
+dependency points to the maintained sibling myutils checkout; playwright-core
+controls the already-installed Chrome.
 
 ```sh
 npm run check
@@ -20,32 +15,38 @@ node src/cli.mjs --help
 git diff --check
 ```
 
-The Node test suite uses injected transports. It makes no HTTP, DNS, proxy,
-browser or account call; the CLI plan/help is exercised as a child process.
-Covered boundaries include missing/malformed/challenged/rate-limited results,
-reduced anonymous API schemas, official list boundaries, transient scores,
-opposite score scales, source lineage, ASN/egress conflicts, public-address
-validation, browser request restrictions, explicit ATT propagation, cancellation,
-proxy/browser cleanup failure, fixed headless Chrome ownership, exact one-use
-anonymous CleanIP POSTs, partial evidence and Markdown redaction. Current suite:
-16 tests, all passing on 2026-10-19.
+The 12 offline tests use small sanitized DOM fixtures and injected owners. They
+perform no HTTP/DNS/browser/account operation. They cover retired-source refusal,
+component points and lineage, combined-vs-separate verdicts, unknown/malformed/
+unfinished results, main-document failures, static-only request permissions,
+parallel completion/order/ATT propagation, individual failure isolation,
+cancellation, stalled-page deadlines, cleanup uncertainty, colors/alignment and
+HTML/Markdown/terminal escaping. They do not prove live provider access.
 
-## Authorized live acceptance
+Live acceptance, authorized separately from the offline suite:
 
 ```sh
 node src/cli.mjs --run
 ```
 
-The full report is created under a new private `reports/<timestamp>-<random>/`
-directory. JSON retains full IP/DOM evidence; Markdown masks IPv4 and fingerprint
-hashes. Neither is committed. `--sources cloudflare,ipify,checkcc,aizx` is a
-focused browser acceptance run; missing sources are intentionally not queried.
+The CLI prints the provider-column table (green/red on a terminal, plain when
+piped or `NO_COLOR` is present) and writes `report.html`, `report.ansi`,
+`report.md` and `report.json` to a new private report directory. It never opens a
+GUI. HTML is self-contained with no scripts or external resources; open it only
+if desired. The ANSI file always retains color. JSON includes bounded native
+text, component values, blocked requests and timings; do not publish it.
 
-Exit 1 means a run-level, cancellation or cleanup failure. Per-source unknown or
-unavailable outcomes remain in the report and do not alone crash the collector.
-Read the source statuses, not just the process exit code. Live partial success
-does not prove account access, App routing, residency or future source stability.
+Latest full acceptance: all three providers completed on 2026-10-19 at
+09:56 America/Los_Angeles, total **12.8 seconds** including ATT/Chrome ownership
+and cleanup. Per-page times: Claude Test 4.0s, AIZX 10.9s, FuckClaude 8.5s.
+These overlap; do not sum them or promise the same latency on future networks.
 
-Before a source change ships, confirm its real DOM result and final cleanup.
-Do not rerun all providers merely to increase a test count. Offline fixture
-success is independent of live provider acceptance.
+Before source-policy changes ship, verify actual native results and cleanup.
+Rendering-only changes can regenerate an existing report without contacting
+providers. For visual inspection, run the original IPQuality renderer with
+offline fixture values, then screenshot only the local report using owned
+headless Chrome with all requests denied. No IP run is needed to compare layouts.
+
+Exit 1 denotes a run-level/cancellation/cleanup failure. Individual provider
+unknown/unavailable outcomes remain table columns; inspect their states rather
+than treating exit 0 as every check passing. The App remains untested.

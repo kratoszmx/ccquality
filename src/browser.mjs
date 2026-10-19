@@ -1,134 +1,93 @@
-import {isIP} from 'node:net';
-import {launchChromeSession} from '@myutils/browser-session/chrome';
-import {baseRow,parseBrowser,publicIPv4} from './evidence.mjs';
+import {baseRow,parseBrowser} from './evidence.mjs';
 
-// Consumer policy: keep every website request on the owned proxy, and exclude
-// local helpers, account operations, telemetry and non-HTTP transports.
-export function requestAllowed({url,method}) {
+// A page may load itself, same-origin static assets, and Claude Test's static
+// rule files. No IP API, trace, DNS, helper, account, analytics, POST or fallback.
+export function requestAllowed(source,{url,method,resourceType,isNavigation=false}) {
   let u;try{u=new URL(url);}catch{return false;}
-  if(!['http:','https:'].includes(u.protocol)||!['GET','HEAD'].includes(method)||u.username||u.password)return false;
-  const host=u.hostname.replace(/^\[|\]$/g,'').toLowerCase();
-  if(host==='localhost'||!host.includes('.')||/\.(localhost|local|internal|lan|onion)$/.test(host))return false;
-  if(isIP(host) && !publicIPv4(host))return false;
-  if(u.port&&!['80','443'].includes(u.port))return false;
-  if(/(^|\.)(googletagmanager\.com|google-analytics\.com|clarity\.ms|51\.la|hm\.baidu\.com|cloudflareinsights\.com)$/.test(host))return false;
-  if(/^(stats|analytics)\./.test(host))return false;
-  if(/\/(?:login|logout|sign-in|oauth|organizations|conversations)(?:\/|$)/i.test(u.pathname))return false;
-  return true;
-}
-
-// Native CleanIP anonymous bootstrap and read-only IP query. The page computes
-// its own proof; no challenge/token/cookie value is exported or synthesized.
-export function nativeLookupPostAllowed({sourceId,url,frameUrl,method,body,expectedIp,used}) {
-  if(sourceId!=='cleanip'||method!=='POST'||!['https://cleanip.io/claude','https://cleanip.io/claude/'].includes(frameUrl)||typeof body!=='string'||body.length>8192||used.has(url))return false;
-  let data;try{data=JSON.parse(body);}catch{return false;}
-  if(!data||typeof data!=='object'||Array.isArray(data))return false;
-  const keys=Object.keys(data).sort().join(',');
-  if(url==='https://cleanip.io/api/v2/token'){
-    return keys==='nonce,seed'&&typeof data.seed==='string'&&data.seed.length>0&&data.seed.length<=4096&&
-      /^[a-zA-Z0-9._:+/=-]+$/.test(data.seed)&&['string','number'].includes(typeof data.nonce)&&/^[0-9]{1,30}$/.test(String(data.nonce));
-  }
-  if(url==='https://cleanip.io/api/v2/batch'){
-    return keys==='ips,mode'&&publicIPv4(expectedIp)&&Array.isArray(data.ips)&&data.ips.length===1&&data.ips[0]===expectedIp&&
-      typeof data.mode==='string'&&/^[a-z_-]{1,32}$/.test(data.mode);
-  }
-  return false;
+  const target=new URL(source.url);
+  if(method!=='GET'||u.protocol!=='https:'||u.origin!==target.origin||u.username||u.password)return false;
+  if(resourceType==='document')return isNavigation&&u.pathname===target.pathname&&!u.search;
+  if(/^\/(?:api|cdn-cgi|login|oauth)(?:\/|$)/i.test(u.pathname))return false;
+  if(source.id==='claudetest'&&['/rules/context-v3.json','/rules/network-v5.json'].includes(u.pathname)&&!u.search)return true;
+  return ['script','stylesheet','font','image'].includes(resourceType)&&
+    /\.(?:[cm]?js|css|woff2?|ttf|otf|png|jpe?g|webp|gif|svg|ico)$/i.test(u.pathname);
 }
 
 export function detectionComplete(id,text) {
-  if(id==='checkcc')return /\d+%\s*\n封号风险/.test(text)&&!/正在执行多维度检测|\n检测中\n/.test(text);
-  if(id==='claudetest')return /已完成 5\s*\/\s*5/.test(text)||/检测完成|检查完成/.test(text);
-  if(id==='cleanip')return /检测完成\s*\n/.test(text)&&/共 7 项检测/.test(text);
-  if(id==='pingip')return /自动检测完成/.test(text);
+  if(id==='claudetest')return /本模块检测完成/.test(text);
   if(id==='aizx')return /已测\s*9\s*项/.test(text)&&/导出报告/.test(text);
-  if(id==='ipbook')return /\d+\s*\n风险\/100/.test(text)&&!/检测中…|正在扫描/.test(text);
+  if(id==='fuckclaude')return /(?:Scan again|重新检测)/.test(text)&&/\n(?:Low risk|Medium risk|High risk|低风险|中风险|高风险)\n/.test(text);
   return false;
 }
 
-export async function collectBrowser(source,{proxyServer,stateDir,signal,chromium,expectedIp,timeoutMs=60000,launch=launchChromeSession}) {
-  let session,row,mainStatus=null,phase='startup';
+export async function collectPage(source,{page,signal,timeoutMs=15000}) {
+  const started=performance.now();
   const blocked=[],failures=[];
-  let responses=0;
+  let text='',mainStatus=null,environment={},phase='navigation',timedOut=false,responses=0,completed=false;
+  let closePromise;
+  const close=()=>closePromise??=(async()=>{await page.close();})();
+  const stop=()=>{close().catch(()=>{});};
+  const timer=setTimeout(()=>{timedOut=true;stop();},timeoutMs);
+  signal?.addEventListener('abort',stop,{once:true});
+  let row;
   try {
-    session=await launch(chromium,{stateDir,mode:'headless',chromePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',route:{mode:'proxy',server:proxyServer},lifetimeMs:timeoutMs+15000,signal});
-    const stop=()=>{session.close().catch(()=>{});};
-    signal?.addEventListener('abort',stop,{once:true});
-    try {
-      await session.context.addInitScript(()=>{
-        for(const key of ['RTCPeerConnection','webkitRTCPeerConnection'])Object.defineProperty(globalThis,key,{value:undefined,writable:false,configurable:false});
-        if(globalThis.ServiceWorkerContainer)Object.defineProperty(ServiceWorkerContainer.prototype,'register',{value:()=>Promise.reject(new Error('ccquality_read_only')),writable:false,configurable:false});
+    if(signal?.aborted)throw Error('cancelled');
+    const throttled=new Set();let requestCount=0;
+    page.on('popup',p=>p.close().catch(()=>{}));
+    page.on('download',d=>d.cancel().catch(()=>{}));
+    page.on('response',r=>{
+      responses++;
+      if(r.status()===429)throttled.add(new URL(r.url()).hostname);
+      if(r.status()>=400&&failures.length<20)failures.push({status:r.status(),host:new URL(r.url()).hostname});
+    });
+    await page.route('**/*',route=>{
+      const r=route.request(),u=new URL(r.url());
+      const allowed=++requestCount<=180&&!signal?.aborted&&!throttled.has(u.hostname)&&requestAllowed(source,{
+        url:r.url(),method:r.method(),resourceType:r.resourceType(),isNavigation:r.isNavigationRequest()&&r.frame()===page.mainFrame(),
       });
-      await session.context.routeWebSocket('**/*',socket=>socket.close());
-      session.context.on('page',page=>{if(page!==session.page)page.close().catch(()=>{});});
-      session.page.on('download',download=>download.cancel().catch(()=>{}));
-      let requestCount=0;
-      const throttled=new Set(),nativePosts=new Set();
-      session.context.on('response',response=>{
-        responses++;
-        if(response.status()===429)throttled.add(new URL(response.url()).hostname);
-        if(response.status()>=400 && failures.length<40)failures.push({host:new URL(response.url()).hostname,status:response.status()});
-      });
-      await session.context.route('**/*',async route=>{
-        const req=route.request();let u;try{u=new URL(req.url());}catch{return route.abort();}
-        let nativePost=false;
-        if(req.method()==='POST'){
-          let frameUrl='';try{frameUrl=req.frame().url();}catch{}
-          nativePost=nativeLookupPostAllowed({sourceId:source.id,url:req.url(),frameUrl,method:req.method(),body:req.postData(),expectedIp,used:nativePosts});
+      if(!allowed&&blocked.length<60)blocked.push({host:u.hostname,path:u.pathname.slice(0,120),method:r.method()});
+      return allowed?route.continue():route.abort();
+    });
+    const response=await page.goto(source.url,{waitUntil:'domcontentloaded',timeout:Math.min(timeoutMs,12000)});
+    mainStatus=response?.status()??null;
+    text=await page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
+    if(mainStatus<200||mainStatus>=300||/^(Just a moment|Access denied|Forbidden)/i.test(text.trim())){
+      row=parseBrowser(source,text,{httpStatus:mainStatus});
+    }else{
+      phase='page_readiness';
+      environment=await page.evaluate(()=>({language:navigator.language,languages:navigator.languages,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,locale:Intl.DateTimeFormat().resolvedOptions().locale,webdriver:navigator.webdriver}));
+      await page.waitForLoadState('load',{timeout:5000});
+      // AIZX renders its button before React hydrates; don't click an inert SSR control.
+      if(source.id==='aizx')await page.waitForTimeout(1500);
+      if(source.id==='claudetest'){
+        phase='local_only_settings';
+        await page.locator('#rtc-consent').waitFor({state:'attached',timeout:4000});
+        const panel=page.locator('details').filter({has:page.locator('#rtc-consent')});
+        if(await panel.getAttribute('open')===null)await panel.locator('summary').click({timeout:2000});
+        for(const id of ['ip','dual','split','rtc','intel','online-reputation','dns','system','trace']){
+          phase=`local_only_setting_${id}`;
+          await page.locator(`#${id}-consent`).uncheck({timeout:2000});
         }
-        const allowed=++requestCount<=500&&!signal?.aborted&&!throttled.has(u.hostname)&&(nativePost||requestAllowed({url:req.url(),method:req.method()}));
-        if(!allowed){
-          if(blocked.length<100)blocked.push({host:u.hostname,path:u.pathname.slice(0,200),method:req.method()});
-          return route.abort();
-        }
-        if(nativePost)nativePosts.add(req.url());
-        return route.continue();
-      });
-      const deadline=Date.now()+timeoutMs;
-      phase='navigation';
-      const response=await session.page.goto(source.url,{waitUntil:'domcontentloaded',timeout:25000});
-      mainStatus=response?.status()??null;
-      let text=await session.page.locator('body').evaluate(element=>element.innerText.slice(0,60000),undefined,{timeout:5000});
-      const environment=await session.page.evaluate(()=>({language:navigator.language,languages:navigator.languages,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,locale:Intl.DateTimeFormat().resolvedOptions().locale,webdriver:navigator.webdriver}));
-      if(mainStatus>=400 || /^(Just a moment|Access denied|Forbidden)/i.test(text.trim())){
-        row=parseBrowser(source,text,{httpStatus:mainStatus,blocked,environment});
-      }else{
-        phase='page_readiness';
-        await session.page.waitForLoadState('load',{timeout:12000});
-        await session.page.waitForTimeout(2500);
-        if(source.id==='claudetest'){
-          phase='detection_settings';
-          const panel=session.page.locator('details').filter({has:session.page.locator('#rtc-consent')});
-          if(await panel.count()===1 && !(await panel.getAttribute('open')))await panel.locator('summary').click({timeout:5000});
-          for(const id of ['rtc-consent','dns-consent','system-consent','trace-consent'])await session.page.locator('#'+id).uncheck({timeout:5000});
-        }
-        for(const [index,name] of source.clicks.entries()){
-          phase=`start_control_${index+1}`;
-          await session.page.getByRole('button',{name,exact:true}).click({timeout:8000});
-        }
-        phase='result_readiness';
-        let completed=false;
-        do {
-          if(signal?.aborted)throw Error('cancelled');
-          text=await session.page.locator('body').evaluate(element=>element.innerText.slice(0,60000),undefined,{timeout:3000});
-          completed=detectionComplete(source.id,text);
-          if(completed||Date.now()>=deadline)break;
-          await session.page.waitForTimeout(1000);
-        }while(Date.now()<deadline);
-        row=parseBrowser(source,text,{completed,httpStatus:mainStatus,blocked,environment});
       }
-      row.responseCount=responses;row.failedResponses=failures;row.nativeLookupPosts=[...nativePosts].map(url=>new URL(url).pathname);
-    }finally{signal?.removeEventListener('abort',stop);}
-  }catch(error){
-    if(/without confirmed cleanup|could not start or clean/.test(error?.message??''))throw Error('browser_cleanup_failed');
-    row=baseRow(source);row.httpStatus=mainStatus;row.status=signal?.aborted?'cancelled':'unavailable';
-    row.summary=signal?.aborted?'使用者中止；保留已完成來源':'瀏覽器流程未完成';
-    row.errorCode=error?.name==='TimeoutError'?'browser_timeout':'browser_flow_failed';
+      phase='local_scan';
+      const button=source.button.startsWith('#')?page.locator(source.button):page.getByRole('button',{name:source.button,exact:true});
+      await button.click({timeout:3000});
+      do{
+        if(signal?.aborted)throw Error('cancelled');
+        text=await page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
+        completed=detectionComplete(source.id,text);
+        if(!completed)await page.waitForTimeout(150);
+      }while(!completed);
+      row=parseBrowser(source,text,{completed,httpStatus:mainStatus,environment});
+    }
+  }catch{
+    row=text?parseBrowser(source,text,{completed:false,httpStatus:mainStatus,environment}):baseRow(source);
+    row.status=signal?.aborted?'cancelled':timedOut?'timeout':'unavailable';
+    row.errorCode=signal?.aborted?'cancelled':timedOut?'deadline':'browser_flow_failed';
     row.phase=phase;
-    row.blockedRequests=blocked;row.failedResponses=failures;
   }finally{
-    // Failure to close is a run-level failure, never a successful source.
-    if(session){try{await session.close();}catch{throw Error('browser_cleanup_failed');}}
+    clearTimeout(timer);signal?.removeEventListener('abort',stop);
+    try{await close();}catch{throw Error('browser_cleanup_failed');}
   }
-  row.cleanupConfirmed=true;
-  return row;
+  return {...row,durationMs:Math.round(performance.now()-started),responseCount:responses,blockedRequests:blocked,failedResponses:failures};
 }

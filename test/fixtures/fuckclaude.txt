@@ -1,0 +1,61 @@
+15
+/ 100
+Low risk
+Scan again
+Matched signals
+Installed Chinese fonts
++14
+Emoji rendering style
++1
+What gets scanned
+System timezone
+Weight 24
+timezone explanation
+America/Los_Angeles
++0
+Browser language
+Weight 18
+language explanation
+zh-tw, zh, en-us, en
++0
+Installed Chinese fonts
+Weight 14
+font explanation
+PingFang SC, STHeiti
++14
+Chinese vendor fonts
+Weight 10
+vendor explanation
+none detected
++0
+WebRTC IP leak
+Weight 10
+RTC explanation
+no leak detected
++0
+Chinese browser / WebView
+Weight 8
+browser explanation
+none detected
++0
+Chinese-brand device
+Weight 6
+device explanation
+none detected
++0
+Intl locale
+Weight 4
+locale explanation
+zh-TW
++0
+Timezone offset
+Weight 3
+offset explanation
+UTC-7
++0
+Emoji rendering style
+Weight 3
+emoji explanation
+Apple style
++1
+How the check works
