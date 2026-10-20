@@ -27,7 +27,7 @@ export function renderMarkdown(report){
   const icon={pass:'🟢 ',issue:'🔴 ',unknown:'',info:''};
   const refs=report.references??REFERENCES;
   return ['# CCQuality','',metadata(report),'',
-    '| 檢測項 | 對 Claude App 的參考性 | '+report.rows.map(r=>`[${md(r.name)}](${safeLink(r.url)??''})`).join(' | ')+' |',
+    '| 檢測項 | Claude App參考性 | '+report.rows.map(r=>`[${md(r.name)}](${safeLink(r.url)??''})`).join(' | ')+' |',
     '| --- | --- | '+report.rows.map(()=>'---').join(' | ')+' |',
     ...matrix(report).map(r=>{
       const reference=safeLink(refs[r.app?.refs?.[0]]?.url);
@@ -42,7 +42,7 @@ export function terminalWidth(value){
   return [...String(value)].reduce((n,c)=>n+(/\p{Mark}/u.test(c)?0:/[\u1100-\u115f\u2e80-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe6f\uff01-\uff60\uffe0-\uffe6]/u.test(c)?2:1),0);
 }
 export function renderTerminal(report,{color=true}={}){
-  const rows=[{label:'檢測項',app:{label:'對 Claude App 的參考性'},cells:report.rows.map(r=>cell(r.name))},...matrix(report)];
+  const rows=[{label:'檢測項',app:{label:'Claude App參考性'},cells:report.rows.map(r=>cell(r.name))},...matrix(report)];
   const grid=rows.map(r=>[cell(r.label),r.app?cell(r.app.label):unknown,...r.cells]
     .map(c=>({...c,label:c.label==='—'?'-':maskText(c.label)})));
   const widths=grid[0].map((_,i)=>Math.max(...grid.map(r=>terminalWidth(r[i].label))));
@@ -82,5 +82,5 @@ span.pass,span.issue,span.info,span.unknown{display:inline-block;max-width:100%;
 .pass{background:#e6f4ec;color:#116038;font-weight:600}.issue{background:#fdebec;color:#af2634;font-weight:600}.info{color:#315673}.unknown{color:#76828b}
 a{color:inherit;text-decoration:none}a:focus-visible{outline:2px solid #2c77a8;outline-offset:3px}
 @media(max-width:700px){body{padding:10px}main{padding:16px}}
-</style><main><h1>CCQuality</h1><p class="meta">${html(metadata(report))}</p><div class="table"><table><thead><tr><th>檢測項</th><th>對 Claude App 的參考性</th>${report.rows.map(r=>`<th><a href="${html(safeLink(r.url)??'')}">${html(r.name)}</a></th>`).join('')}</tr></thead><tbody>${table}</tbody></table></div></main></html>`;
+</style><main><h1>CCQuality</h1><p class="meta">${html(metadata(report))}</p><div class="table"><table><thead><tr><th>檢測項</th><th>Claude App參考性</th>${report.rows.map(r=>`<th><a href="${html(safeLink(r.url)??'')}">${html(r.name)}</a></th>`).join('')}</tr></thead><tbody>${table}</tbody></table></div></main></html>`;
 }

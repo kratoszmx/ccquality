@@ -185,7 +185,7 @@ test('CheckCC begins the native scan in its target dialog before accepting local
 test('parallel result renders provider columns with green passes, red issues and grey unknowns',()=>{
   const r=report(),ansi=renderTerminal(r),plain=renderTerminal(r,{color:false}),md=renderMarkdown(r),html=renderHtml(r);
   assert.match(ansi,/\x1b\[32m通過/);assert.match(ansi,/\x1b\[31m命中/);assert.match(ansi,/\x1b\[90m-/);
-  assert.doesNotMatch(plain,/\x1b/);assert.match(md,/\| 檢測項 \| 對 Claude App 的參考性 \| \[CheckCC\]/);
+  assert.doesNotMatch(plain,/\x1b/);assert.match(md,/\| 檢測項 \| Claude App參考性 \| \[CheckCC\]/);
   assert.match(html,/class="pass"/);assert.match(html,/class="issue"/);assert.match(html,/default-src 'none'/);
   assert.ok(!matrix(r).some(x=>/ASN|IP 聲譽|WebRTC/.test(x.label)));
   const lines=plain.split('\n').filter(x=>x.includes(' | '));

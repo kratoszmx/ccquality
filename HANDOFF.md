@@ -18,7 +18,7 @@ node src/cli.mjs --run
 The absolute CLI path also works from another directory. Omit `--run` for an
 offline plan. Help derives the provider count directly from the catalog.
 
-The table now states **App relevance for each metric**, with dated official
+The table labels its App relevance column `Claude App參考性`, with dated official
 and technical references. Timezone/OS are indirect references to categories
 Anthropic says it collects. Browser language, Intl, WebView, automation and
 site storage do not establish the App's corresponding state. Fonts, writing
