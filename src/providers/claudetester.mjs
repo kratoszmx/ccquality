@@ -1,6 +1,6 @@
 import {contribution,numeric} from '../evidence.mjs';
 
-// Original open-source six-signal rule set; ClaudeFlag and JinDaGe reuse its weights.
+// Public six-signal rule set; ClaudeFlag and JinDaGe show the same weights.
 const SIGNALS=[
   ['timezone','系统时区',30],['language','浏览器语言',24],['fonts','中文字体',20],
   ['locale','Intl 区域',10],['offset','时区偏移',8],['emoji','Emoji 风格',8],

@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {EventEmitter} from 'node:events';
 import {SOURCES,selectSources} from '../src/catalog.mjs';
 import {parseBrowser,baseRow} from '../src/evidence.mjs';
-import {requestAllowed,collectPage} from '../src/browser.mjs';
+import {requestAllowed,blockRedirects,collectPage} from '../src/browser.mjs';
 import {collect} from '../src/collect.mjs';
 import {matrix,renderHtml,renderMarkdown,renderTerminal,terminalWidth} from '../src/report.mjs';
 import {APP_EVIDENCE,REFERENCES} from '../src/app-evidence.mjs';
@@ -35,6 +36,10 @@ test('native completed results keep exact component points and lineage',()=>{
   assert.equal(c.features.regional.state,'issue');assert.equal(c.features.storage.state,'pass');
   assert.equal(c.features.language,undefined); // A combined check is not three separate verdicts.
   assert.equal(a.lineage,'fuckclaude-derived');
+  const am=parsed('amichina');
+  assert.equal(am.lineage,'amichina');
+  assert.deepEqual(Object.values(am.features).map(f=>f.weight),Object.values(a.features).map(f=>f.weight));
+  assert.notDeepEqual(Object.values(am.features).map(f=>f.weight),Object.values(f.features).map(f=>f.weight));
   assert.equal(Object.keys(f.features).length,9);assert.equal(f.features.webrtc,undefined);
   for(const r of [a,f,c])assert.equal(r.status,'measured');
 });
@@ -156,7 +161,9 @@ test('cancelled run launches nothing; cancellation while scanning still closes a
 
 function stalledPage(){
   let rejectGoto;
-  const page={on(){},route:async()=>{},goto:()=>new Promise((_,reject)=>{rejectGoto=reject;}),close:async()=>{rejectGoto?.(Error('closed'));}};
+  const page={on(){},route:async()=>{},
+    context:()=>({newCDPSession:async()=>({on(){},send:async()=>{}})}),
+    goto:()=>new Promise((_,reject)=>{rejectGoto=reject;}),close:async()=>{rejectGoto?.(Error('closed'));}};
   return page;
 }
 test('page deadline closes a stalled request and records timeout; cancellation records cancelled',async()=>{
@@ -165,12 +172,37 @@ test('page deadline closes a stalled request and records timeout; cancellation r
   assert.equal(timed.status,'timeout');assert.deepEqual(timed.features,{});
   const c=new AbortController(),pending=collectPage(source('aizx'),{page:stalledPage(),signal:c.signal,timeoutMs:1000});
   setTimeout(()=>c.abort(),10);assert.equal((await pending).status,'cancelled');
+  const failedGuard=stalledPage();let navigated=false;
+  failedGuard.context=()=>({newCDPSession:async()=>{throw Error('guard unavailable');}});
+  failedGuard.goto=async()=>{navigated=true;};
+  const failed=await collectPage(source('aizx'),{page:failedGuard,timeoutMs:1000});
+  assert.equal(navigated,false);assert.equal(failed.status,'unavailable');assert.equal(failed.phase,'response_guard');
+});
+
+test('response interception blocks redirects, preserves other statuses and fails closed on protocol errors',async()=>{
+  const cdp=new EventEmitter(),commands=[],blocked=[];let failed=0,closed=false;
+  cdp.send=async(method,params)=>{commands.push({method,params});};
+  const page={context:()=>({newCDPSession:async()=>cdp}),isClosed:()=>closed};
+  await blockRedirects(page,e=>blocked.push(e.responseStatusCode),()=>failed++);
+  for(const status of [200,204,304,404,429,301,302,303,307,308])
+    cdp.emit('Fetch.requestPaused',{requestId:String(status),responseStatusCode:status});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(blocked,[301,302,303,307,308]);
+  assert.deepEqual(commands.filter(c=>c.method==='Fetch.failRequest').map(c=>c.params.requestId),['301','302','303','307','308']);
+  assert.equal(commands.filter(c=>c.method==='Fetch.continueRequest').length,5);
+  cdp.send=async()=>{throw Error('protocol failure');};
+  cdp.emit('Fetch.requestPaused',{requestId:'broken',responseStatusCode:200});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(failed,1);
+  closed=true;
+  cdp.emit('Fetch.requestPaused',{requestId:'already closed',responseStatusCode:200});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(failed,1);
 });
 
 test('CheckCC begins the native scan in its target dialog before accepting local results',async()=>{
   const clicks=[];let closed=0;
   const page={
     on(){},route:async()=>{},mainFrame(){},close:async()=>{closed++;},
+    context:()=>({newCDPSession:async()=>({on(){},send:async()=>{}})}),
     goto:async()=>({status:()=>200}),evaluate:async()=>({timezone:'America/Los_Angeles'}),
     waitForLoadState:async()=>{},waitForTimeout:async()=>{},
     locator:()=>({evaluate:async()=>clicks.length===2?fixture('checkcc'):'等待检测'}),

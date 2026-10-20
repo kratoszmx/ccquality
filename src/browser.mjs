@@ -24,13 +24,27 @@ export function requestAllowed(source,{url,method,resourceType,isNavigation=fals
 }
 
 const readBody=page=>page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
-const clickStart=(page,source)=>source.button&&(source.button.startsWith('#')?page.locator(source.button):
-  page.getByRole('button',{name:source.button,exact:source.buttonExact??true})).click({timeout:3000});
+
+// Playwright routes only the first URL of a server redirect. Inspect the
+// response before Chrome follows it; keep transport in the native ATT browser.
+// The owned page closes this CDP session along with its pending commands.
+export async function blockRedirects(page,onBlocked,onFailure){
+  const cdp=await page.context().newCDPSession(page);
+  cdp.on('Fetch.requestPaused',event=>{
+    const redirect=event.responseStatusCode>=300&&event.responseStatusCode<400&&event.responseStatusCode!==304;
+    void (async()=>{
+      if(redirect)onBlocked(event);
+      await cdp.send(redirect?'Fetch.failRequest':'Fetch.continueRequest',redirect?
+        {requestId:event.requestId,errorReason:'BlockedByClient'}:{requestId:event.requestId});
+    })().catch(()=>{if(!page.isClosed())onFailure();});
+  });
+  await cdp.send('Fetch.enable',{patterns:[{urlPattern:'*',requestStage:'Response'}]});
+}
 
 export async function collectPage(source,{page,signal,timeoutMs=15000}) {
   const started=performance.now();
   const blocked=[],failures=[];
-  let text='',mainStatus=null,environment={},phase='navigation',timedOut=false,responses=0,completed=false;
+  let text='',mainStatus=null,environment={},phase='navigation',timedOut=false,responses=0,completed=false,guardFailed=false;
   let closePromise;
   const close=()=>closePromise??=(async()=>{await page.close();})();
   const stop=()=>{close().catch(()=>{});};
@@ -55,6 +69,13 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
       if(!allowed&&blocked.length<60)blocked.push({host:u.hostname,path:u.pathname.slice(0,120),method:r.method()});
       return allowed?route.continue():route.abort();
     });
+    phase='response_guard';
+    await blockRedirects(page,event=>{
+      const u=new URL(event.request.url);
+      if(blocked.length<60)blocked.push({host:u.hostname,path:u.pathname.slice(0,120),method:event.request.method,
+        status:event.responseStatusCode,reason:'redirect_denied'});
+    },()=>{guardFailed=true;stop();});
+    phase='navigation';
     const response=await page.goto(source.url,{waitUntil:'domcontentloaded',timeout:Math.min(timeoutMs,12000)});
     mainStatus=response?.status()??null;
     text=await readBody(page);
@@ -67,7 +88,8 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
       // Some sites render controls before the corresponding client hydrates.
       if(source.hydrateMs)await page.waitForTimeout(source.hydrateMs);
       phase='local_scan';
-      const click=()=>clickStart(page,source);
+      const click=()=>source.button&&(source.button.startsWith('#')?page.locator(source.button):
+        page.getByRole('button',{name:source.button,exact:source.buttonExact??true})).click({timeout:3000});
       await (source.start?source.start(page,{click,setPhase:value=>{phase=value;}}):click());
       do{
         if(signal?.aborted)throw Error('cancelled');
@@ -80,7 +102,7 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
   }catch{
     row=text?parseBrowser(source,text,{completed:false,httpStatus:mainStatus,environment}):baseRow(source);
     row.status=signal?.aborted?'cancelled':timedOut?'timeout':'unavailable';
-    row.errorCode=signal?.aborted?'cancelled':timedOut?'deadline':'browser_flow_failed';
+    row.errorCode=signal?.aborted?'cancelled':timedOut?'deadline':guardFailed?'response_guard_failed':'browser_flow_failed';
     row.phase=phase;
   }finally{
     clearTimeout(timer);signal?.removeEventListener('abort',stop);

@@ -10,6 +10,8 @@ launches bind explicitly to that listener with no fallback.
 Up to three independent native headless Chrome owners run concurrently, each
 with a fresh private profile, 15-second startup bound and independent 45-second
 lifetime. Each page collector has a 15-second deadline and closes its own page.
+Its CDP response interceptor rejects redirects before Chrome follows them;
+the interceptor session and pending commands belong to that page.
 The collector awaits every result and Chrome cleanup before closing ATT. Parent
 loss is handled by the shared native owner; a cleanup rejection is fatal.
 Eight default providers share the three slots; queued sources do not launch
@@ -24,3 +26,7 @@ report files are `0600`. Unsafe existing directories/symlinks are rejected.
 Reports remain for review; there is no automatic retention job.
 Normal output is the comparison table only. Cleanup failures remain a visible
 error row and a nonzero exit; successful cleanup is recorded only in JSON.
+
+`npm run check:browser` owns a separate headless Chrome and loopback fixture
+proxy under `.state/redirect-fixture/`. It opens no upstream connection and
+always closes both resources. It does not start ATT or change resident Clash.

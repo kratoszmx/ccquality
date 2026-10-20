@@ -9,6 +9,7 @@
   },
   "scripts": {
     "check": "node --test test/*.test.mjs",
+    "check:browser": "node test/redirect-browser.mjs",
     "start": "node src/cli.mjs"
   },
   "dependencies": {

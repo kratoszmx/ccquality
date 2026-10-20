@@ -1,6 +1,6 @@
 import {contribution,numeric} from '../evidence.mjs';
 
-// Same nine weights as AIZX/okTest's FuckClaude adaptation; not independent.
+// Same nine weights as AIZX. Matching weights do not prove code ancestry.
 const DIMENSIONS=[
   ['timezone','系统时区',26],['language','浏览器语言',20],['fonts','常见中文字体',16],
   ['vendorFonts','厂商中文字体',10],['webview','浏览器或 WebView',8],['device','设备品牌',6],
@@ -8,9 +8,11 @@ const DIMENSIONS=[
 ];
 
 export default {
-  id:'amichina',name:'AmIChinaFlagged',url:'https://amichinaflagged.com/',family:'fuckclaude-weights',
-  button:'开始检查',buttonExact:false,method:'同 FuckClaude 權重',
+  // The root redirects to /zh; enter the reviewed page without following redirects.
+  id:'amichina',name:'AmIChinaFlagged',url:'https://amichinaflagged.com/zh',family:'amichina',
+  button:'开始检查',buttonExact:false,method:'同 AIZX 權重',
   hydrateMs:1500,expected:9,index:{label:'環境信號分數',scope:'local'},
+  limitations:['九項權重與 AIZX 相同，不能視為獨立驗證；未證實程式碼來源相同。'],
   complete:text=>/再次检查/.test(text)&&/系统与表情代理[^]*?\n得分/.test(text),
   parse(row,text){
     // The page's 72/100 and 12/100 demonstrations precede this audit block.

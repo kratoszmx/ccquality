@@ -16,8 +16,8 @@ an IP query; do not retain skipped-only columns or restore IP tests.
 `--sources id,id` selects a subset from [src/catalog.mjs](src/catalog.mjs).
 Each provider is one module in [src/providers/](src/providers/) owning its URL,
 start flow, completion signal, parser, weights and declared static exceptions,
-plus one sanitized fixture. Add a site only when it brings a rule family not
-already shown; clones of an existing weight set stay in PROVIDERS.md's reviewed list.
+plus one sanitized fixture. Additional sites with an existing weight set stay
+in PROVIDERS.md's reviewed list unless they supply distinct evidence.
 The report follows IPQuality's layout: providers are columns, checks are rows.
 Green means the source passed that item, red means it flagged/added points,
 grey means unmeasured/unavailable. Each metric includes its App relevance.
@@ -36,6 +36,8 @@ paragraphs, legend, cleanup success message or artifact-path dump.
   CleanIP's explicit static CDN asset directories and Claude Test's two exact
   static rule files. Reject IP APIs, trace/DNS probes, other sites, telemetry
   (including same-origin `/_vercel/`), account routes, arbitrary fetch and all POSTs.
+  Block server redirects at Chrome's response stage before following them;
+  Playwright's request routing alone only checks the first URL.
 - Disable every Claude Test network/helper checkbox before starting. Do not
   click AIZX's optional network scan. Disable WebRTC and service workers before
   page scripts; deny WebSockets, popups and downloads. Missing is never PASS.
@@ -47,8 +49,9 @@ paragraphs, legend, cleanup success message or artifact-path dump.
   Stop CheckCC after its local rows populate; never wait for its blocked network
   workflow or report its changing total. Do not retry failed IP prerequisites.
 - AIZX derives from FuckClaude and AmIChinaFlagged uses AIZX's same nine
-  weights: three displayed providers, not three independent confirmations.
-  claude-tester is a separate six-signal family. Font/language/Emoji scoring is a website heuristic, not an
+  weights: these are overlapping rules, not independent validation.
+  Equal weights alone do not establish shared code ancestry.
+  claude-tester is a separate six-signal set. Font/language/Emoji scoring is a website heuristic, not an
   Anthropic rule or a recommendation to remove fonts/change locale.
 - The App relevance column distinguishes official collection categories from
   site conjecture and Chrome/origin-specific data. Official collection is not

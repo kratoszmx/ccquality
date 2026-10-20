@@ -15,7 +15,7 @@ node src/cli.mjs --help
 git diff --check
 ```
 
-The 18 offline tests use small sanitized DOM fixtures and injected owners. They
+The 19 offline tests use small sanitized DOM fixtures and injected owners. They
 perform no HTTP/DNS/browser/account operation. They cover standalone IP-source refusal,
 component points and lineage, combined-vs-separate verdicts, unknown/malformed/
 unfinished results, main-document failures, static-only request permissions,
@@ -27,8 +27,22 @@ refusal of the removed IPBook ID before live work, App evidence categories and r
 notes/paths. Every provider module must declare its flow contract and parse its
 fixture to `measured`; claude-tester's zero-omitting summary chips and
 overweight values are rejected, and same-origin `/_vercel/` analytics is denied.
+A redirect-interceptor regression covers 301/302/303/307/308 refusal,
+non-redirect statuses including 304, runtime protocol failure, and refusal to
+navigate if the response guard cannot be installed.
 A new provider needs its module, catalog entry and fixture before this passes.
 They do not prove live provider access.
+
+```sh
+npm run check:browser
+```
+
+This separate native Chrome regression uses only a loopback fixture proxy. The
+proxy serves synthetic responses and never opens upstream connections; CONNECT
+is refused. Normal HTTP succeeds, all five redirect types are blocked, and the
+forbidden destination's request counter must remain zero. This exercises actual
+Chrome response interception together with Playwright routing, then closes both
+owned processes. It does not query an IP or contact a website.
 
 Live acceptance, authorized separately from the offline suite:
 
@@ -43,7 +57,8 @@ GUI. HTML is self-contained with no scripts or external resources; open it only
 if desired. The ANSI file always retains color. JSON includes bounded native
 text, component values, blocked requests and timings; do not publish it.
 
-The default run covers eight providers with local results; three share one FuckClaude weight family.
+The default run covers eight providers with local results. AIZX derives from
+FuckClaude; AmIChinaFlagged shares AIZX's weights without verified code ancestry.
 Platforms requiring an IP query before producing results are excluded.
 CheckCC's completed local rows do not mean its blocked full scan completed.
 Per-page durations overlap; do not sum them or promise fixed network latency.

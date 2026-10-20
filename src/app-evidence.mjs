@@ -1,8 +1,9 @@
-// Reviewed through ATT on 2026-10-19. Collection is not a published ban rule.
+// Policy references refreshed through ATT on 2026-10-20; technical references
+// reviewed on 2026-10-19. Collection is not a published ban rule.
 // These references are static report metadata, never extra requests during a run.
 export const REFERENCES=Object.freeze({
-  privacy:{url:'https://www.anthropic.com/legal/privacy',title:'Anthropic Privacy Policy',reviewedOn:'2026-10-19',effectiveOn:'2026-09-10'},
-  safeguards:{url:'https://support.claude.com/en/articles/8241253-safeguards-warnings-and-appeals',title:'Safeguards warnings and appeals',reviewedOn:'2026-10-19'},
+  privacy:{url:'https://www.anthropic.com/legal/privacy',title:'Anthropic Privacy Policy',reviewedOn:'2026-10-20',effectiveOn:'2026-09-10'},
+  safeguards:{url:'https://support.claude.com/en/articles/8241253-safeguards-warnings-and-appeals',title:'Safeguards warnings and appeals',reviewedOn:'2026-10-20'},
   electronLocale:{url:'https://www.electronjs.org/docs/latest/api/app#appgetpreferredsystemlanguages',title:'Electron system languages and locale',reviewedOn:'2026-10-19'},
   browserLanguage:{url:'https://developer.mozilla.org/en-US/docs/Web/API/Navigator/languages',title:'Navigator.languages',reviewedOn:'2026-10-19'},
   storage:{url:'https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage',title:'Origin-specific localStorage',reviewedOn:'2026-10-19'},
