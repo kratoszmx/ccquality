@@ -1,36 +1,31 @@
-import {baseRow,parseBrowser} from './evidence.mjs';
+import {baseRow,challenged,parseBrowser} from './evidence.mjs';
 
-// A page may load itself, same-origin static assets, and Claude Test's static
-// rule files. No IP API, trace, DNS, helper, account, analytics, POST or fallback.
+const STATIC_TYPES=new Set(['script','stylesheet','font','image']);
+const STATIC_FILE=/\.(?:[cm]?js|css|woff2?|ttf|otf|png|jpe?g|webp|gif|svg|ico)$/i;
+// API, edge diagnostics, account and hosting-analytics paths stay closed on the page origin.
+const DENIED_PATH=/^\/(?:api|cdn-cgi|login|oauth|_vercel)(?:\/|$)/i;
+const staticAsset=(u,resourceType)=>STATIC_TYPES.has(resourceType)&&STATIC_FILE.test(u.pathname);
+
+// A page may load itself, same-origin static assets and the exact static
+// exceptions its provider declares (asset directories on a dedicated CDN, rule
+// files). No IP API, trace, DNS, helper, account, analytics, POST or fallback.
 export function requestAllowed(source,{url,method,resourceType,isNavigation=false}) {
   let u;try{u=new URL(url);}catch{return false;}
-  const target=new URL(source.url);
   if(method!=='GET'||u.protocol!=='https:'||u.username||u.password)return false;
-  // CleanIP hosts its application bundles on its dedicated static CDN.
-  // Allow only published asset directories, never its API or telemetry hosts.
-  if(source.id==='cleanip'&&u.origin==='https://static.cleanipcdn.com'){
-    return !u.search&&/^\/(?:_nuxt\/v2|fonts\/google-sans|libs\/fontawesome)\//.test(u.pathname)&&
-      ['script','stylesheet','font','image'].includes(resourceType)&&
-      /\.(?:[cm]?js|css|woff2?|ttf|otf|png|jpe?g|webp|gif|svg|ico)$/i.test(u.pathname);
+  const target=new URL(source.url);
+  if(u.origin!==target.origin){
+    const directories=Object.hasOwn(source.assetOrigins??{},u.origin)?source.assetOrigins[u.origin]:null;
+    return Boolean(directories?.test(u.pathname))&&!u.search&&staticAsset(u,resourceType);
   }
-  if(u.origin!==target.origin)return false;
   if(resourceType==='document')return isNavigation&&u.pathname===target.pathname&&!u.search;
-  if(/^\/(?:api|cdn-cgi|login|oauth)(?:\/|$)/i.test(u.pathname))return false;
-  if(source.id==='claudetest'&&['/rules/context-v3.json','/rules/network-v5.json'].includes(u.pathname)&&!u.search)return true;
-  return ['script','stylesheet','font','image'].includes(resourceType)&&
-    /\.(?:[cm]?js|css|woff2?|ttf|otf|png|jpe?g|webp|gif|svg|ico)$/i.test(u.pathname);
+  if(DENIED_PATH.test(u.pathname))return false;
+  if(!u.search&&source.staticFiles?.includes(u.pathname))return true;
+  return staticAsset(u,resourceType);
 }
 
-export function detectionComplete(id,text) {
-  if(id==='checkcc')return /命中的检测信号/.test(text)&&/\nEmoji 渲染风格\n[^\n]+\n\+\d+/.test(text)&&/\n操作系统\n[^\n]+\n\+\d+/.test(text);
-  if(id==='claudetest')return /本模块检测完成/.test(text);
-  if(id==='cleanip')return /(?:^|\n)检测完成\n/.test(text)&&/07 · 本地系统/.test(text)&&/\nIntl 区域设置\n\d+\/6/.test(text);
-  if(id==='pingip')return /自动检测完成/.test(text)&&/FULL INSPECTION/.test(text);
-  if(id==='amichina')return /再次检查/.test(text)&&/系统与表情代理[^]*?\n得分/.test(text);
-  if(id==='aizx')return /已测\s*9\s*项/.test(text)&&/导出报告/.test(text);
-  if(id==='fuckclaude')return /(?:Scan again|重新检测)/.test(text)&&/\n(?:Low risk|Medium risk|High risk|低风险|中风险|高风险)\n/.test(text);
-  return false;
-}
+const readBody=page=>page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
+const clickStart=(page,source)=>source.button&&(source.button.startsWith('#')?page.locator(source.button):
+  page.getByRole('button',{name:source.button,exact:source.buttonExact??true})).click({timeout:3000});
 
 export async function collectPage(source,{page,signal,timeoutMs=15000}) {
   const started=performance.now();
@@ -62,40 +57,22 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
     });
     const response=await page.goto(source.url,{waitUntil:'domcontentloaded',timeout:Math.min(timeoutMs,12000)});
     mainStatus=response?.status()??null;
-    text=await page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
-    if(mainStatus<200||mainStatus>=300||/^(Just a moment|Access denied|Forbidden)/i.test(text.trim())){
+    text=await readBody(page);
+    if(mainStatus<200||mainStatus>=300||challenged(text)){
       row=parseBrowser(source,text,{httpStatus:mainStatus});
     }else{
       phase='page_readiness';
       environment=await page.evaluate(()=>({language:navigator.language,languages:navigator.languages,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,locale:Intl.DateTimeFormat().resolvedOptions().locale,webdriver:navigator.webdriver}));
       await page.waitForLoadState('load',{timeout:5000});
-      // These sites render controls before the corresponding client hydrates.
-      if(['aizx','cleanip','amichina','checkcc'].includes(source.id))await page.waitForTimeout(1500);
-      if(source.id==='claudetest'){
-        phase='local_only_settings';
-        await page.locator('#rtc-consent').waitFor({state:'attached',timeout:4000});
-        const panel=page.locator('details').filter({has:page.locator('#rtc-consent')});
-        if(await panel.getAttribute('open')===null)await panel.locator('summary').click({timeout:2000});
-        for(const id of ['ip','dual','split','rtc','intel','online-reputation','dns','system','trace']){
-          phase=`local_only_setting_${id}`;
-          await page.locator(`#${id}-consent`).uncheck({timeout:2000});
-        }
-      }
+      // Some sites render controls before the corresponding client hydrates.
+      if(source.hydrateMs)await page.waitForTimeout(source.hydrateMs);
       phase='local_scan';
-      if(source.button){
-        const button=source.button.startsWith('#')?page.locator(source.button):
-          page.getByRole('button',{name:source.button,exact:source.id!=='amichina'});
-        await button.click({timeout:3000});
-        if(source.id==='checkcc'){
-          phase='confirm_scan_target';
-          await page.getByRole('button',{name:'开始检测',exact:true}).click({timeout:3000});
-          phase='local_scan';
-        }
-      }
+      const click=()=>clickStart(page,source);
+      await (source.start?source.start(page,{click,setPhase:value=>{phase=value;}}):click());
       do{
         if(signal?.aborted)throw Error('cancelled');
-        text=await page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});
-        completed=detectionComplete(source.id,text);
+        text=await readBody(page);
+        completed=source.complete(text);
         if(!completed)await page.waitForTimeout(150);
       }while(!completed);
       row=parseBrowser(source,text,{completed,httpStatus:mainStatus,environment});

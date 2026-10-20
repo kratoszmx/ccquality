@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {SOURCES,selectSources} from '../src/catalog.mjs';
 import {parseBrowser,baseRow} from '../src/evidence.mjs';
-import {requestAllowed,detectionComplete,collectPage} from '../src/browser.mjs';
+import {requestAllowed,collectPage} from '../src/browser.mjs';
 import {collect} from '../src/collect.mjs';
 import {matrix,renderHtml,renderMarkdown,renderTerminal,terminalWidth} from '../src/report.mjs';
 import {APP_EVIDENCE,REFERENCES} from '../src/app-evidence.mjs';
@@ -14,14 +14,14 @@ const fixture=id=>readFileSync(new URL(`fixtures/${id}.txt`,import.meta.url),'ut
 const parsed=id=>parseBrowser(source(id),fixture(id),{completed:true});
 const report=()=>({observedAt:'2026-10-19T17:00:00Z',durationMs:12000,cleanupConfirmed:true,rows:SOURCES.map(s=>parsed(s.id))});
 
-test('seven local providers; IP-dependent and standalone IP sources rejected before live work',()=>{
-  assert.deepEqual(selectSources().map(s=>s.id),['checkcc','claudetest','cleanip','pingip','aizx','fuckclaude','amichina']);
+test('eight local providers; IP-dependent and standalone IP sources rejected before live work',()=>{
+  assert.deepEqual(selectSources().map(s=>s.id),['checkcc','claudetest','cleanip','pingip','aizx','fuckclaude','amichina','claudetester']);
   for(const id of ['ipbook','ipify','cloudflare','supported','aizx,','aizx,,fuckclaude'])assert.throws(()=>selectSources(id),/unknown_source/);
   assert.equal(selectSources('aizx,aizx').length,1);
   const plan=execFileSync(process.execPath,['src/cli.mjs'],{cwd:new URL('../',import.meta.url),encoding:'utf8'});
   assert.match(plan,/不測 IP/);assert.doesNotMatch(plan,/api.ipify|cdn-cgi|ipwho.is|ipbook/i);
   const help=execFileSync(process.execPath,['src/cli.mjs','--help'],{encoding:'utf8'});
-  assert.match(help,/無 Claude App/);assert.match(help,/預設 7 個來源/);
+  assert.match(help,/無 Claude App/);assert.match(help,/預設 8 個來源/);
   assert.throws(()=>execFileSync(process.execPath,['src/cli.mjs','--run','--sources','ipbook'],{encoding:'utf8',stdio:'pipe'}),
     error=>error.status===1&&error.stderr.includes('unknown_source'));
 });
@@ -62,8 +62,8 @@ test('403, challenge, 429 and invalid main documents are not usable scores',()=>
     assert.equal(row.score,null);assert.deepEqual(row.features,{});
   }
   assert.equal(parseBrowser(source('aizx'),'Just a moment',{httpStatus:200}).status,'blocked');
-  for(const s of SOURCES)assert.equal(detectionComplete(s.id,fixture(s.id)),true);
-  assert.equal(detectionComplete('aizx','正在检测 5/9'),false);
+  for(const s of SOURCES)assert.equal(s.complete(fixture(s.id)),true,s.id);
+  assert.equal(source('aizx').complete('正在检测 5/9'),false);
 });
 
 test('network policy permits static assets and exact rules, denies all IP and account probes',()=>{
@@ -71,6 +71,8 @@ test('network policy permits static assets and exact rules, denies all IP and ac
   const get={method:'GET',resourceType:'fetch'};
   for(const url of ['https://api.ipify.org/','https://ipwho.is/','https://claude.ai/cdn-cgi/trace','https://aizx.ai/api/tools/claude-probe','http://127.0.0.1/','https://localhost/','file:///etc/passwd','claude://open','https://user:password@aizx.ai/_next/static/a.js'])assert.equal(requestAllowed(a,{...get,url}),false,url);
   assert.equal(requestAllowed(f,{...get,url:'https://fuck-claude.vercel.app/api/check?format=json'}),false);
+  assert.equal(requestAllowed(f,{url:'https://fuck-claude.vercel.app/_vercel/insights/script.js',method:'GET',resourceType:'script'}),false);
+  assert.equal(requestAllowed(source('claudetester'),{url:'https://claude-tester-six.vercel.app/audio/1.ogg',method:'GET',resourceType:'media'}),false);
   assert.equal(requestAllowed(c,{...get,url:'https://claudetest.app/rules/context-v3.json'}),true);
   assert.equal(requestAllowed(c,{...get,url:'https://claudetest.app/rules/context-v3.json?ip=1.2.3.4'}),false);
   assert.equal(requestAllowed(a,{url:a.url,method:'GET',resourceType:'document',isNavigation:true}),true);
@@ -103,7 +105,7 @@ function owners(){
   };
 }
 
-test('seven sources use at most three concurrent owners, retaining order and ATT',async()=>{
+test('eight sources use at most three concurrent owners, retaining order and ATT',async()=>{
   const o=owners();let entered=0,release,active=0,peak=0;
   const launch=o.launch;
   o.launch=async(...args)=>{
@@ -115,7 +117,7 @@ test('seven sources use at most three concurrent owners, retaining order and ATT
     assert.equal(opts.timeoutMs,15000);if(++entered===3)release();await barrier;
     return {...parsed(s.id),durationMs:8};
   }});
-  assert.deepEqual(o.counts,{proxy:1,browser:7,closed:7,proxyClosed:1});
+  assert.deepEqual(o.counts,{proxy:1,browser:8,closed:8,proxyClosed:1});
   assert.equal(peak,3);assert.equal(active,0);
   assert.deepEqual(r.rows.map(x=>x.id),SOURCES.map(x=>x.id));assert.equal(r.cleanupConfirmed,true);
   assert.equal(r.ipTests,false);assert.equal(r.banProbability,null);assert.equal(r.appLaunched,false);
@@ -125,7 +127,7 @@ test('a site error does not discard peers or leak exception text',async()=>{
   const o=owners();const r=await collect({sources:SOURCES,...o,scan:async s=>{if(s.id==='aizx')throw Error('secret-sentinel');return parsed(s.id);}});
   assert.equal(r.rows.find(x=>x.id==='aizx').status,'unavailable');
   assert.equal(r.rows.find(x=>x.id==='checkcc').status,'measured');
-  assert.equal(o.counts.closed,7);assert.equal(r.cleanupConfirmed,true);assert.equal(JSON.stringify(r).includes('secret-sentinel'),false);
+  assert.equal(o.counts.closed,8);assert.equal(r.cleanupConfirmed,true);assert.equal(JSON.stringify(r).includes('secret-sentinel'),false);
 });
 
 test('bad proxy and proxy startup errors never fall back; browser cleanup uncertainty is fatal',async()=>{
@@ -235,4 +237,24 @@ test('normal reports are table-only; cleanup errors remain visible',()=>{
     }
   }
   assert.match(renderTerminal({...report(),cleanupConfirmed:false,error:'cleanup_failed'}),/執行錯誤.*cleanup_failed/);
+});
+
+test('every provider module declares its flow, completion, parser and a fixture',()=>{
+  for(const s of SOURCES){
+    assert.equal(typeof s.complete,'function',s.id);assert.equal(typeof s.parse,'function',s.id);
+    assert.ok(Number.isInteger(s.expected)&&s.expected>0,s.id);assert.ok(s.url.startsWith('https://'),s.id);
+    assert.equal(parsed(s.id).status,'measured',s.id);
+  }
+});
+
+test('claude-tester reads its six-signal list, never the summary chips',()=>{
+  const r=parsed('claudetester');
+  assert.equal(r.score,39);assert.equal(r.scoreScope,'local');assert.equal(r.lineage,'claude-tester');
+  assert.equal(r.features.timezone.state,'pass');assert.equal(r.features.offset.state,'pass');
+  assert.equal(r.features.fonts.points,20);assert.equal(r.features.fonts.weight,20);
+  assert.equal(r.features.language.points,12);assert.equal(r.features.emoji.points,2);
+  const summaryOnly=fixture('claudetester').split('检测信号')[0];
+  assert.deepEqual(parseBrowser(source('claudetester'),summaryOnly,{completed:true}).features,{});
+  const overweight=fixture('claudetester').replace('Canvas 探测简繁字体\nPingFang SC, Hiragino Sans GB, STHeiti, STSong…\n+20','Canvas 探测简繁字体\nPingFang SC\n+21');
+  assert.equal(parseBrowser(source('claudetester'),overweight,{completed:true}).features.fonts,undefined);
 });

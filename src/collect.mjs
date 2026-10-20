@@ -4,6 +4,9 @@ import {baseRow} from './evidence.mjs';
 import {collectPage} from './browser.mjs';
 import {APP_EVIDENCE,REFERENCES} from './app-evidence.mjs';
 
+// Shared owner messages and this collector's own error for unconfirmed cleanup.
+const CLEANUP_FAILURE=/without confirmed cleanup|could not start or clean|cleanup_failed/;
+
 export async function collect({sources,stateDir,signal,onProgress=()=>{},startProxy=startManagedProxy,
   launch=launchChromeSession,scan=collectPage,chromium}={}) {
   const started=performance.now();
@@ -40,25 +43,24 @@ export async function collect({sources,stateDir,signal,onProgress=()=>{},startPr
     };
     // Start the next provider as soon as an owner closes, with at most three
     // live Chrome owners. A slow source cannot hold up a whole fixed batch.
+    // Each slot records its own failure, so no worker promise rejects.
     const results=new Array(sources.length);let next=0;
-    const workers=await Promise.allSettled(Array.from({length:Math.min(report.limits.parallelPages,sources.length)},async()=>{
+    await Promise.all(Array.from({length:Math.min(report.limits.parallelPages,sources.length)},async()=>{
       while(next<sources.length){
         const index=next++;
-        try{results[index]={status:'fulfilled',value:await runSource(sources[index])};}
-        catch(reason){results[index]={status:'rejected',reason};}
+        try{results[index]={row:await runSource(sources[index])};}
+        catch(error){results[index]={error};}
       }
     }));
-    if(workers.some(r=>r.status==='rejected'))throw Error('worker_failed');
     for(const [index,result] of results.entries()){
-      if(result.status==='fulfilled')report.rows.push(result.value);
+      if(result.row)report.rows.push(result.row);
       else{
-        const row=baseRow(sources[index]);row.status=signal?.aborted?'cancelled':'unavailable';
-        report.rows.push(row);
-        if(/without confirmed cleanup|could not start or clean|cleanup_failed/.test(result.reason?.message??''))cleanupProblem=true;
+        report.rows.push({...baseRow(sources[index]),status:signal?.aborted?'cancelled':'unavailable'});
+        if(CLEANUP_FAILURE.test(result.error?.message??''))cleanupProblem=true;
       }
     }
   }catch(error){
-    cleanupProblem=/without confirmed cleanup|could not start or clean|cleanup_failed/.test(error?.message??'');
+    cleanupProblem=CLEANUP_FAILURE.test(error?.message??'');
     report.error=signal?.aborted?'cancelled':'collection_failed';
   }finally{
     for(const source of sources)if(!report.rows.some(r=>r.id===source.id))report.rows.push({...baseRow(source),status:signal?.aborted?'cancelled':'not_run'});

@@ -2,9 +2,10 @@
 
 | Owner | API / caller | Contract |
 | --- | --- | --- |
-| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Seven local-check providers; reject removed/IP-dependent sources and unknown IDs before network |
-| `src/browser.mjs` | `requestAllowed`, `detectionComplete`, `collectPage` | Static-only website policy, native local scan, per-page deadline/cancellation and awaited cleanup |
-| `src/evidence.mjs` | `FEATURES`, `baseRow`, `parseBrowser`, `maskText` | Per-provider result schemas, bounded component points/weights and explicit missing values |
+| `src/providers/<id>.mjs` | default export → catalog | One provider: `id`/`name`/`url`/`family`/`method`, optional `button`/`buttonExact`/`hydrateMs`/`start(page,{click,setPhase})`, `complete(text)`, `parse(row,text)`, `expected` feature count, optional `index`, `limitations`, `assetOrigins`, `staticFiles` |
+| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Ordered, frozen list of the eight provider modules; reject removed/IP-dependent sources and unknown IDs before network |
+| `src/browser.mjs` | `requestAllowed`, `collectPage` | Static-only website policy plus provider-declared exceptions, native local scan, per-page deadline/cancellation and awaited cleanup |
+| `src/evidence.mjs` | `FEATURES`, `baseRow`, `contribution`, `parseBrowser`, `maskText` and small value guards | Shared row schema, bounded component points/weights, explicit missing values and status from the provider's `expected` count |
 | `src/app-evidence.mjs` | `APP_EVIDENCE`, `REFERENCES` → collector/report | Dated official/technical references, indirect App relevance, browser/site specificity and unverified website heuristics |
 | `src/report.mjs` | `matrix`, `renderTerminal`, `renderMarkdown`, `renderHtml` | One provider-column matrix across ANSI, Markdown and self-contained HTML |
 | `src/report.mjs` | `terminalWidth` → terminal renderer | Width of sanitized text including padding; ASCII/combining/CJK alignment for this report |

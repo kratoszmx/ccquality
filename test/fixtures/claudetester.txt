@@ -1,0 +1,50 @@
+你是 Claude 中国用户吗？
+GitHub: claude-tester
+39
+/ 100
+中风险
+
+你可能是 Claude 中国用户！
+
+重新检测
+
+命中的信号
+
+🌐
+浏览器语言
++12
+🔤
+中文字体
++20
+⚙️
+Intl 区域
++5
+😀
+Emoji 风格
++2
+检测信号
+🕐
+系统时区 Intl 读取的 OS 时区
+America/Los_Angeles
++0
+🌐
+浏览器语言 navigator.languages
+zh-tw, zh, en-us, en
++12
+🔤
+中文字体 Canvas 探测简繁字体
+PingFang SC, Hiragino Sans GB, STHeiti, STSong…
++20
+⚙️
+Intl 区域 日期/数字格式区域
+zh-TW
++5
+⏰
+时区偏移 getTimezoneOffset
+UTC-7
++0
+😀
+Emoji 风格 由 UA 推断
+Apple style
++2
+检测原理 & FAQ

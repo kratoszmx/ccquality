@@ -12,7 +12,7 @@ with a fresh private profile, 15-second startup bound and independent 45-second
 lifetime. Each page collector has a 15-second deadline and closes its own page.
 The collector awaits every result and Chrome cleanup before closing ATT. Parent
 loss is handled by the shared native owner; a cleanup rejection is fatal.
-Seven default providers share the three slots; queued sources do not launch
+Eight default providers share the three slots; queued sources do not launch
 after cancellation. Each slot is released only after the previous owner closes.
 
 SIGINT/SIGTERM cancels pending work, preserves completed rows and awaits owned

@@ -18,8 +18,9 @@ export function matrix(report){
   return rows;
 }
 function metadata(report){
-  const time=new Date(report.observedAt).toLocaleString('zh-TW',{timeZone:'America/Los_Angeles',hour12:false});
-  return `${time} America/Los_Angeles · ATT · ${report.rows.length} 個來源 · ${(report.durationMs/1000).toFixed(1)} 秒`;
+  const timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const time=new Date(report.observedAt).toLocaleString('zh-TW',{timeZone,hour12:false});
+  return `${time} ${timeZone} · ATT · ${report.rows.length} 個來源 · ${(report.durationMs/1000).toFixed(1)} 秒`;
 }
 const md=s=>maskText(s).replace(/[|]/g,'\\|').replace(/[<>]/g,'');
 const safeLink=value=>{try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:undefined;}catch{return undefined;}};

@@ -3,10 +3,11 @@
 The provider candidates come from network-manager's `mcp維護` chat
 `01a070db-71c4-7772-9d2a-0a0617ff66f7`. That research compared features and
 method transparency; it did not validate ban predictions or establish a
-reputation ranking. Coverage is not endorsement. Keep the seven providers
+reputation ranking. Coverage is not endorsement. Keep the eight providers
 that can produce local results without querying an IP. IPBook was removed
 because it requires `/api/whoami` before rendering results; its old ID is
-rejected before any network or browser startup.
+rejected before any network or browser startup. claude-tester was added on
+2026-10-20 as the only reviewed rule family not already shown (see below).
 
 | Provider | Native action and local evidence | Method / limitation |
 | --- | --- | --- |
@@ -16,7 +17,8 @@ rejected before any network or browser startup.
 | [PING IP](https://pingip.co/claude) | Automatic scan; read `FULL INSPECTION` | Timezone/offset as one native finding and browser language. Reject its network-dependent “100 safe” total and unanswered account questionnaire. |
 | [AIZX](https://aizx.ai/tools/claude-region) | Click `开始检测`; do not start the optional network scan | Nine local dimensions, derived from FuckClaude; agreement is not independent validation. |
 | [FuckClaude](https://fuck-claude.vercel.app/) | Click `#retest`; no `/api/check` request | [Open source](https://github.com/LinXiaoTao/FuckClaude). Nine local dimensions. Exclude its disabled-WebRTC “no leak” result; the displayed original index is partial. |
-| [AmIChinaFlagged](https://amichinaflagged.com/) | Click `开始检查`; only the native local page | Nine local dimensions. Do not parse the 72/100 and 12/100 demonstration scores or use its network/header API. Its Claude Code claims do not verify Desktop behavior. |
+| [AmIChinaFlagged](https://amichinaflagged.com/) | Click `开始检查`; only the native local page | Nine local dimensions with exactly AIZX's weights (26/20/16/10/8/6/6/4/4), so it is the same rule family. Do not parse the 72/100 and 12/100 demonstration scores or use its network/header API. Its Claude Code claims do not verify Desktop behavior. |
+| [claude-tester](https://claude-tester-six.vercel.app/) | Click `#scan-btn`; read the `检测信号` list (about 4 seconds of native animation) | [Open source](https://github.com/gokuscraper/claude-tester), MIT. Six signals weighted 30/24/20/10/8/8: timezone, language, Chinese fonts, Intl locale, UTC+8 offset and a UA-inferred Emoji vendor. Every Mac gets Emoji +2 and macOS PingFang SC counts as a Chinese font. The summary chips omit zero results and are not parsed; audio and Google Fonts stay blocked. |
 
 The pages and their native DOM were checked through ATT on 2026-10-19. A
 website's statement about what Anthropic uses is its claim, not an official
@@ -24,6 +26,23 @@ finding. FuckClaude's own repository describes reported **Claude Code**
 behavior and calls its other signals general environment fingerprints. Neither
 that description nor AmIChinaFlagged's Code claim proves Claude Desktop uses
 the same signals.
+
+## Reviewed candidates not added (2026-10-20)
+
+Searched through the local text browser on 2026-10-20. Pages were read only;
+none was scanned except claude-tester. A clone repeats an existing weight set,
+so adding it would make agreement look like independent confirmation.
+
+| Candidate | Finding | Decision |
+| --- | --- | --- |
+| [okTest](https://oktest.ai/zh/claude-env-check) | Nine signals weighted exactly like AIZX/AmIChinaFlagged; cites its MIT reference project | Clone of the FuckClaude family |
+| [ClaudeFlag](https://claudeflag.com/) | Six signals weighted exactly like claude-tester; also promotes `curl \| sh` installers | Clone of claude-tester |
+| [JinDaGe](https://jindage.com/en/claude-cn-check) | Six signals weighted exactly like claude-tester, on a relay-marketing site | Clone of claude-tester |
+| [IPPure](https://ippure.com/claude) | Mixes exit IP, WebRTC and DNS leak checks with credited FuckClaude signals | IP-dependent |
+| [Claude Guard](https://dku.wang/) | Server-side network identity plus FuckClaude weights and a rule API | IP/server-dependent |
+| [Claude Ban Check](https://hype-yolo.github.io/claude-ban-check/) | Queries `ipwho.is`; its apostrophe marker needs a manually entered Claude Code base URL | IP-dependent; Claude Code only |
+| `fuck-claude.app`, `fuck-claude.com` | Same title and description as FuckClaude | Mirrors; the existing open-source deployment stays |
+| `m.cdhub.cn` (“检查Claude 封号风险”) | TLS negotiation failed once through the default proxy | Unverified; not retried |
 
 ## What can actually inform an App assessment?
 
@@ -70,7 +89,10 @@ Every website request uses an owned ATT proxy. Allow only the selected HTTPS
 document, same-origin static assets, Claude Test's two exact static rule files,
 and CleanIP's static CDN asset directories (`/_nuxt/v2/`,
 `/fonts/google-sans/`, `/libs/fontawesome/`). The CDN exception does not allow
-fetch/XHR, query parameters, API routes or analytics.
+fetch/XHR, query parameters, API routes or analytics. Each exception is data in
+its provider module (`assetOrigins`, `staticFiles`), not a branch in the shared
+policy. Same-origin `/api`, `/cdn-cgi`, `/login`, `/oauth` and `/_vercel`
+(hosting analytics) paths are denied for every provider.
 
 All IP, ASN, reputation, geo/trace/DNS, Claude endpoint, helper, arbitrary
 fetch/POST, WebSocket, service-worker and WebRTC activity is denied before
@@ -80,7 +102,7 @@ denied.
 
 At most three independently owned native headless Chrome sessions run at a
 time. Each page has a 15-second collection deadline; a free slot starts the
-next candidate immediately. Hydration waits apply only to the four sites with
-server-rendered controls. No personal browser or system setting is changed.
+next candidate immediately. Hydration waits (`hydrateMs`) apply only to the
+four sites with server-rendered controls. No personal browser or system setting is changed.
 Normal output is just the table and timestamp; detailed provenance and
 failures remain in the private JSON.

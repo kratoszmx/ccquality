@@ -15,7 +15,7 @@ node src/cli.mjs --help
 git diff --check
 ```
 
-The 16 offline tests use small sanitized DOM fixtures and injected owners. They
+The 18 offline tests use small sanitized DOM fixtures and injected owners. They
 perform no HTTP/DNS/browser/account operation. They cover standalone IP-source refusal,
 component points and lineage, combined-vs-separate verdicts, unknown/malformed/
 unfinished results, main-document failures, static-only request permissions,
@@ -24,7 +24,11 @@ cancellation, stalled-page deadlines, cleanup uncertainty, colors/alignment and
 HTML/Markdown/terminal escaping. They also cover CheckCC's native two-step start,
 rejection of network-dependent totals, AmIChinaFlagged's demonstration scores,
 refusal of the removed IPBook ID before live work, App evidence categories and removal of normal-output
-notes/paths. They do not prove live provider access.
+notes/paths. Every provider module must declare its flow contract and parse its
+fixture to `measured`; claude-tester's zero-omitting summary chips and
+overweight values are rejected, and same-origin `/_vercel/` analytics is denied.
+A new provider needs its module, catalog entry and fixture before this passes.
+They do not prove live provider access.
 
 Live acceptance, authorized separately from the offline suite:
 
@@ -39,7 +43,7 @@ GUI. HTML is self-contained with no scripts or external resources; open it only
 if desired. The ANSI file always retains color. JSON includes bounded native
 text, component values, blocked requests and timings; do not publish it.
 
-The default run covers seven providers with independent local results.
+The default run covers eight providers with local results; three share one FuckClaude weight family.
 Platforms requiring an IP query before producing results are excluded.
 CheckCC's completed local rows do not mean its blocked full scan completed.
 Per-page durations overlap; do not sum them or promise fixed network latency.
