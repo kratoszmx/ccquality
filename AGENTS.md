@@ -6,25 +6,31 @@ DNS, exit comparisons and country eligibility belong to IPQuality, not here.
 ```sh
 cd /Users/zmx/Projects/projects/ccquality
 node src/cli.mjs                 # offline disclosure plan
-node src/cli.mjs --run           # three local checks through ATT
+node src/cli.mjs --run           # eight candidate sites through ATT
 npm run check                   # offline validation
 ```
 
-Default providers: Claude Test, AIZX and FuckClaude's native browser scan.
+Default providers: CheckCC, Claude Test, CleanIP, PING IP, AIZX, FuckClaude,
+AmIChinaFlagged and IPBook. Restore the original research candidates without
+restoring IP tests. IPBook stays visible as skipped when it requires an IP query.
 `--sources id,id` selects a subset from [src/catalog.mjs](src/catalog.mjs).
 The report follows IPQuality's layout: providers are columns, checks are rows.
 Green means the source passed that item, red means it flagged/added points,
-grey means unmeasured/unavailable. No aggregate ban probability is produced.
+grey means unmeasured/unavailable. Each metric includes its App relevance.
+Normal output contains the table and its brief timestamp only: no explanatory
+paragraphs, legend, cleanup success message or artifact-path dump.
 
 ## Execution boundaries
 
 - **Never launch, activate, automate or read private state from Claude App.**
   No Claude CLI, login, account credentials, helper, payment or app endpoint.
-- One isolated managed ATT proxy, three independent native headless Chrome
-  sessions in parallel. Never attach to personal Chrome, change system settings,
+- One isolated managed ATT proxy, at most three independent native headless
+  Chrome sessions in parallel, taking the next source as a slot becomes free.
+  Never attach to personal Chrome, change system settings,
   mutate resident Clash, rotate routes, or fall back to direct.
-- Requests are limited to the selected page, its same-origin static assets and
-  Claude Test's two exact static rule files. Reject IP APIs, trace/DNS probes,
+- Requests are limited to the selected page, its same-origin static assets,
+  CleanIP's explicit static CDN asset directories and Claude Test's two exact
+  static rule files. Reject IP APIs, trace/DNS probes,
   other sites, telemetry, account routes, arbitrary fetch and all POSTs.
 - Disable every Claude Test network/helper checkbox before starting. Do not
   click AIZX's optional network scan. Disable WebRTC and service workers before
@@ -34,9 +40,16 @@ grey means unmeasured/unavailable. No aggregate ban probability is produced.
 - Start each source once, cap its page collection at 15 seconds, preserve
   partial/failure results, await every task and owner cleanup. Separate sessions
   avoid the background-tab throttling seen with one browser and three tabs.
+  Stop CheckCC after its local rows populate; never wait for its blocked network
+  workflow or report its changing total. Do not retry failed IP prerequisites.
 - AIZX derives from FuckClaude: two displayed providers, not two independent
   confirmations. Font/language/Emoji scoring is a website heuristic, not an
   Anthropic rule or a recommendation to remove fonts/change locale.
+- The App relevance column distinguishes official collection categories from
+  site conjecture and Chrome/origin-specific data. Official collection is not
+  proof of a ban threshold. Claude Code claims are not Desktop verification.
+  Keep reviewed references in `src/app-evidence.mjs`; normal runs do not refetch
+  policies or contact Claude/Anthropic. Details remain in docs/JSON and tooltips.
 - Keep reports and runtime state in ignored owner-private directories. Do not
   commit raw website evidence, profiles, full IPs or credentials.
 - Import maintained myutils and network-manager APIs directly; no forwarding

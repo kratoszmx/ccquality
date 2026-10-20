@@ -2,14 +2,16 @@ import {startManagedProxy} from '../../../managers/network-manager/lib/managed-p
 import {launchChromeSession} from '@myutils/browser-session/chrome';
 import {baseRow} from './evidence.mjs';
 import {collectPage} from './browser.mjs';
+import {APP_EVIDENCE,REFERENCES} from './app-evidence.mjs';
 
 export async function collect({sources,stateDir,signal,onProgress=()=>{},startProxy=startManagedProxy,
   launch=launchChromeSession,scan=collectPage,chromium}={}) {
   const started=performance.now();
-  const report={schemaVersion:2,observedAt:new Date().toISOString(),route:'isolated-managed-ATT',
+  const report={schemaVersion:3,observedAt:new Date().toISOString(),route:'isolated-managed-ATT',
     application:'Claude desktop on this Mac',appLaunched:false,accountAccessed:false,ipTests:false,
     browserMode:'fresh-native-headless-Chrome',rows:[],cleanupConfirmed:false,
-    limits:{providerTimeoutMs:15000,parallelPages:3},banProbability:null};
+    limits:{providerTimeoutMs:15000,parallelPages:3},banProbability:null,
+    appEvidence:APP_EVIDENCE,references:REFERENCES};
   let proxy,cleanupProblem=false;
   try{
     if(signal?.aborted)throw Error('cancelled');
@@ -17,7 +19,7 @@ export async function collect({sources,stateDir,signal,onProgress=()=>{},startPr
     if(!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(proxy.proxyServer)||+new URL(proxy.proxyServer).port>65535)throw Error('invalid_owned_proxy');
     // Separate native windows in headless mode avoid Chrome background-tab
     // timer throttling. Their owners and sites run concurrently on one ATT proxy.
-    const results=await Promise.allSettled(sources.map(async source=>{
+    const runSource=async source=>{
       if(signal?.aborted)throw Error('cancelled');
       let session;
       try{
@@ -35,7 +37,18 @@ export async function collect({sources,stateDir,signal,onProgress=()=>{},startPr
       }finally{
         if(session){try{await session.close();}catch{throw Error('browser_cleanup_failed');}}
       }
+    };
+    // Start the next provider as soon as an owner closes, with at most three
+    // live Chrome owners. A slow source cannot hold up a whole fixed batch.
+    const results=new Array(sources.length);let next=0;
+    const workers=await Promise.allSettled(Array.from({length:Math.min(report.limits.parallelPages,sources.length)},async()=>{
+      while(next<sources.length){
+        const index=next++;
+        try{results[index]={status:'fulfilled',value:await runSource(sources[index])};}
+        catch(reason){results[index]={status:'rejected',reason};}
+      }
     }));
+    if(workers.some(r=>r.status==='rejected'))throw Error('worker_failed');
     for(const [index,result] of results.entries()){
       if(result.status==='fulfilled')report.rows.push(result.value);
       else{

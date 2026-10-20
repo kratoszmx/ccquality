@@ -5,7 +5,15 @@ import {baseRow,parseBrowser} from './evidence.mjs';
 export function requestAllowed(source,{url,method,resourceType,isNavigation=false}) {
   let u;try{u=new URL(url);}catch{return false;}
   const target=new URL(source.url);
-  if(method!=='GET'||u.protocol!=='https:'||u.origin!==target.origin||u.username||u.password)return false;
+  if(method!=='GET'||u.protocol!=='https:'||u.username||u.password)return false;
+  // CleanIP hosts its application bundles on its dedicated static CDN.
+  // Allow only published asset directories, never its API or telemetry hosts.
+  if(source.id==='cleanip'&&u.origin==='https://static.cleanipcdn.com'){
+    return !u.search&&/^\/(?:_nuxt\/v2|fonts\/google-sans|libs\/fontawesome)\//.test(u.pathname)&&
+      ['script','stylesheet','font','image'].includes(resourceType)&&
+      /\.(?:[cm]?js|css|woff2?|ttf|otf|png|jpe?g|webp|gif|svg|ico)$/i.test(u.pathname);
+  }
+  if(u.origin!==target.origin)return false;
   if(resourceType==='document')return isNavigation&&u.pathname===target.pathname&&!u.search;
   if(/^\/(?:api|cdn-cgi|login|oauth)(?:\/|$)/i.test(u.pathname))return false;
   if(source.id==='claudetest'&&['/rules/context-v3.json','/rules/network-v5.json'].includes(u.pathname)&&!u.search)return true;
@@ -14,7 +22,12 @@ export function requestAllowed(source,{url,method,resourceType,isNavigation=fals
 }
 
 export function detectionComplete(id,text) {
+  if(id==='checkcc')return /命中的检测信号/.test(text)&&/\nEmoji 渲染风格\n[^\n]+\n\+\d+/.test(text)&&/\n操作系统\n[^\n]+\n\+\d+/.test(text);
   if(id==='claudetest')return /本模块检测完成/.test(text);
+  if(id==='cleanip')return /(?:^|\n)检测完成\n/.test(text)&&/07 · 本地系统/.test(text)&&/\nIntl 区域设置\n\d+\/6/.test(text);
+  if(id==='pingip')return /自动检测完成/.test(text)&&/FULL INSPECTION/.test(text);
+  if(id==='amichina')return /再次检查/.test(text)&&/系统与表情代理[^]*?\n得分/.test(text);
+  if(id==='ipbook')return /\n检测失败\n/.test(text)&&/无法获取网络信息/.test(text);
   if(id==='aizx')return /已测\s*9\s*项/.test(text)&&/导出报告/.test(text);
   if(id==='fuckclaude')return /(?:Scan again|重新检测)/.test(text)&&/\n(?:Low risk|Medium risk|High risk|低风险|中风险|高风险)\n/.test(text);
   return false;
@@ -57,8 +70,8 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
       phase='page_readiness';
       environment=await page.evaluate(()=>({language:navigator.language,languages:navigator.languages,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,locale:Intl.DateTimeFormat().resolvedOptions().locale,webdriver:navigator.webdriver}));
       await page.waitForLoadState('load',{timeout:5000});
-      // AIZX renders its button before React hydrates; don't click an inert SSR control.
-      if(source.id==='aizx')await page.waitForTimeout(1500);
+      // These sites render controls before the corresponding client hydrates.
+      if(['aizx','cleanip','amichina','checkcc'].includes(source.id))await page.waitForTimeout(1500);
       if(source.id==='claudetest'){
         phase='local_only_settings';
         await page.locator('#rtc-consent').waitFor({state:'attached',timeout:4000});
@@ -70,8 +83,16 @@ export async function collectPage(source,{page,signal,timeoutMs=15000}) {
         }
       }
       phase='local_scan';
-      const button=source.button.startsWith('#')?page.locator(source.button):page.getByRole('button',{name:source.button,exact:true});
-      await button.click({timeout:3000});
+      if(source.button){
+        const button=source.button.startsWith('#')?page.locator(source.button):
+          page.getByRole('button',{name:source.button,exact:source.id!=='amichina'});
+        await button.click({timeout:3000});
+        if(source.id==='checkcc'){
+          phase='confirm_scan_target';
+          await page.getByRole('button',{name:'开始检测',exact:true}).click({timeout:3000});
+          phase='local_scan';
+        }
+      }
       do{
         if(signal?.aborted)throw Error('cancelled');
         text=await page.locator('body').evaluate(el=>el.innerText.slice(0,24000),undefined,{timeout:2000});

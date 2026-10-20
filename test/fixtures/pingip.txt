@@ -1,0 +1,24 @@
+自动检测完成，综合结果已更新。
+100
+/ 100
+CLAUDE 环境安全度
+极度安全
+FULL INSPECTION
+完整检测明细
+失败
+出口 IP
+IP 数据接口未返回结果。
+获取失败
+PING IP 技术判断
+正常
+浏览器时区与 UTC offset
+时区未发现明显差异。
+America/Los_Angeles · UTC-7
+PING IP 技术判断
+正常
+浏览器语言
+语言只作低权重参考，不单独扣分。
+zh-TW, zh, en-US, en
+PING IP 技术判断
+LOCAL COMPARISON
+账号使用风险：低 · 尚未回答
