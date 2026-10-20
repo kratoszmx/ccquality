@@ -30,11 +30,6 @@ export function parseBrowser(source,text,{completed=false,httpStatus=200,environ
   if(!Number.isInteger(httpStatus)||httpStatus<200||httpStatus>=300){row.status='unavailable';return row;}
   // A homepage's zero, transient score, missing result or timeout is never PASS.
   if(!completed){row.status='incomplete';return row;}
-  if(source.id==='ipbook'){
-    row.completed=false;
-    row.status=/无法获取网络信息/.test(text)?'requires_ip':'unknown';
-    return row;
-  }
   if(source.id==='claudetest'){
     row.score=numeric(text.match(/环境问题指数\s*\n0[–-]100\s*\n(\d{1,3})\s*\n\/\s*100/)?.[1]);
     row.scoreLabel='環境問題指數';

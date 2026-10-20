@@ -1,10 +1,12 @@
 # Provider and App evidence contracts
 
-The eight candidates come from network-manager's `mcp維護` chat
+The provider candidates come from network-manager's `mcp維護` chat
 `01a070db-71c4-7772-9d2a-0a0617ff66f7`. That research compared features and
 method transparency; it did not validate ban predictions or establish a
-reputation ranking. Coverage is not endorsement. All eight remain visible,
-including a site that cannot produce local results without querying an IP.
+reputation ranking. Coverage is not endorsement. Keep the seven providers
+that can produce local results without querying an IP. IPBook was removed
+because it requires `/api/whoami` before rendering results; its old ID is
+rejected before any network or browser startup.
 
 | Provider | Native action and local evidence | Method / limitation |
 | --- | --- | --- |
@@ -15,7 +17,6 @@ including a site that cannot produce local results without querying an IP.
 | [AIZX](https://aizx.ai/tools/claude-region) | Click `开始检测`; do not start the optional network scan | Nine local dimensions, derived from FuckClaude; agreement is not independent validation. |
 | [FuckClaude](https://fuck-claude.vercel.app/) | Click `#retest`; no `/api/check` request | [Open source](https://github.com/LinXiaoTao/FuckClaude). Nine local dimensions. Exclude its disabled-WebRTC “no leak” result; the displayed original index is partial. |
 | [AmIChinaFlagged](https://amichinaflagged.com/) | Click `开始检查`; only the native local page | Nine local dimensions. Do not parse the 72/100 and 12/100 demonstration scores or use its network/header API. Its Claude Code claims do not verify Desktop behavior. |
-| [IPBook](https://ipbook.net/check/) | Automatic page; observe its failed IP prerequisite | Currently requires `/api/whoami` before rendering results. That request is denied; show `需 IP，略過`, never historical/synthetic results. |
 
 The pages and their native DOM were checked through ATT on 2026-10-19. A
 website's statement about what Anthropic uses is its claim, not an official
@@ -60,8 +61,8 @@ disagreements are visible in the matrix, not averaged away.
 
 The index row distinguishes native local indices from partial original
 indices. Never use a changing CheckCC total, CleanIP's mixed overall score,
-PING IP's failed-network safety score or an IPBook marketing warning as a local
-result. No combined score or ban probability exists.
+PING IP's failed-network safety score as a local result. No combined score or
+ban probability exists.
 
 ## Request policy and timing
 

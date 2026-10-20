@@ -14,13 +14,16 @@ const fixture=id=>readFileSync(new URL(`fixtures/${id}.txt`,import.meta.url),'ut
 const parsed=id=>parseBrowser(source(id),fixture(id),{completed:true});
 const report=()=>({observedAt:'2026-10-19T17:00:00Z',durationMs:12000,cleanupConfirmed:true,rows:SOURCES.map(s=>parsed(s.id))});
 
-test('all eight original candidates, without restoring standalone IP tests',()=>{
-  assert.deepEqual(selectSources().map(s=>s.id),['checkcc','claudetest','cleanip','pingip','aizx','fuckclaude','amichina','ipbook']);
-  for(const id of ['ipify','cloudflare','supported','aizx,','aizx,,fuckclaude'])assert.throws(()=>selectSources(id),/unknown_source/);
+test('seven local providers; IP-dependent and standalone IP sources rejected before live work',()=>{
+  assert.deepEqual(selectSources().map(s=>s.id),['checkcc','claudetest','cleanip','pingip','aizx','fuckclaude','amichina']);
+  for(const id of ['ipbook','ipify','cloudflare','supported','aizx,','aizx,,fuckclaude'])assert.throws(()=>selectSources(id),/unknown_source/);
   assert.equal(selectSources('aizx,aizx').length,1);
   const plan=execFileSync(process.execPath,['src/cli.mjs'],{cwd:new URL('../',import.meta.url),encoding:'utf8'});
-  assert.match(plan,/不測 IP/);assert.doesNotMatch(plan,/api.ipify|cdn-cgi|ipwho.is/);
-  assert.match(execFileSync(process.execPath,['src/cli.mjs','--help'],{encoding:'utf8'}),/無 Claude App/);
+  assert.match(plan,/不測 IP/);assert.doesNotMatch(plan,/api.ipify|cdn-cgi|ipwho.is|ipbook/i);
+  const help=execFileSync(process.execPath,['src/cli.mjs','--help'],{encoding:'utf8'});
+  assert.match(help,/無 Claude App/);assert.match(help,/預設 7 個來源/);
+  assert.throws(()=>execFileSync(process.execPath,['src/cli.mjs','--run','--sources','ipbook'],{encoding:'utf8',stdio:'pipe'}),
+    error=>error.status===1&&error.stderr.includes('unknown_source'));
 });
 
 test('native completed results keep exact component points and lineage',()=>{
@@ -100,7 +103,7 @@ function owners(){
   };
 }
 
-test('eight sources use at most three concurrent owners, retaining order and ATT',async()=>{
+test('seven sources use at most three concurrent owners, retaining order and ATT',async()=>{
   const o=owners();let entered=0,release,active=0,peak=0;
   const launch=o.launch;
   o.launch=async(...args)=>{
@@ -112,7 +115,7 @@ test('eight sources use at most three concurrent owners, retaining order and ATT
     assert.equal(opts.timeoutMs,15000);if(++entered===3)release();await barrier;
     return {...parsed(s.id),durationMs:8};
   }});
-  assert.deepEqual(o.counts,{proxy:1,browser:8,closed:8,proxyClosed:1});
+  assert.deepEqual(o.counts,{proxy:1,browser:7,closed:7,proxyClosed:1});
   assert.equal(peak,3);assert.equal(active,0);
   assert.deepEqual(r.rows.map(x=>x.id),SOURCES.map(x=>x.id));assert.equal(r.cleanupConfirmed,true);
   assert.equal(r.ipTests,false);assert.equal(r.banProbability,null);assert.equal(r.appLaunched,false);
@@ -122,7 +125,7 @@ test('a site error does not discard peers or leak exception text',async()=>{
   const o=owners();const r=await collect({sources:SOURCES,...o,scan:async s=>{if(s.id==='aizx')throw Error('secret-sentinel');return parsed(s.id);}});
   assert.equal(r.rows.find(x=>x.id==='aizx').status,'unavailable');
   assert.equal(r.rows.find(x=>x.id==='checkcc').status,'measured');
-  assert.equal(o.counts.closed,8);assert.equal(r.cleanupConfirmed,true);assert.equal(JSON.stringify(r).includes('secret-sentinel'),false);
+  assert.equal(o.counts.closed,7);assert.equal(r.cleanupConfirmed,true);assert.equal(JSON.stringify(r).includes('secret-sentinel'),false);
 });
 
 test('bad proxy and proxy startup errors never fall back; browser cleanup uncertainty is fatal',async()=>{
@@ -198,14 +201,13 @@ test('provider text cannot inject HTML, terminal control or Markdown columns',()
 });
 
 test('partial network workflows only yield their native local components, never network totals',()=>{
-  const check=parsed('checkcc'),clean=parsed('cleanip'),ping=parsed('pingip'),ipbook=parsed('ipbook');
+  const check=parsed('checkcc'),clean=parsed('cleanip'),ping=parsed('pingip');
   assert.equal(check.status,'measured');assert.equal(check.score,null);
   assert.equal(check.features.language.points,20);assert.equal(check.features.script.points,12);
   assert.equal(clean.score,0);assert.equal(clean.scoreScope,'local');
   assert.equal(clean.features.fonts.state,'pass');assert.equal(clean.features.automation.state,'issue');
   assert.equal(ping.status,'measured');assert.equal(ping.score,null);
   assert.equal(ping.features.language.state,'pass');assert.equal(ping.features.offset,undefined);
-  assert.equal(ipbook.status,'requires_ip');assert.equal(ipbook.score,null);assert.deepEqual(ipbook.features,{});
   const waiting=fixture('checkcc').replace('America/Los_Angeles\n+0','等待检测\n+0');
   assert.equal(parseBrowser(source('checkcc'),waiting,{completed:true}).features.timezone,undefined);
   assert.equal(parsed('amichina').score,16); // The 72/100 and 12/100 demonstrations are never read.
@@ -227,6 +229,7 @@ test('App relevance distinguishes official data categories from Chrome, site sta
 
 test('normal reports are table-only; cleanup errors remain visible',()=>{
   for(const output of [renderHtml(report()),renderMarkdown(report()),renderTerminal(report())]){
+    assert.doesNotMatch(output,/ipbook|需 IP，略過/i);
     for(const phrase of ['僅測本機環境，不測 IP','綠＝','原站指數量尺不同','清理：','HTML: /','ANSI: /','JSON: /','Markdown: /']){
       assert.equal(output.includes(phrase),false,phrase);
     }

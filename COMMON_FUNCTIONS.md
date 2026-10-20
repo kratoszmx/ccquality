@@ -2,7 +2,7 @@
 
 | Owner | API / caller | Contract |
 | --- | --- | --- |
-| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Eight research candidates; reject unknown IDs and standalone IP tests before network |
+| `src/catalog.mjs` | `SOURCES`, `selectSources` → CLI | Seven local-check providers; reject removed/IP-dependent sources and unknown IDs before network |
 | `src/browser.mjs` | `requestAllowed`, `detectionComplete`, `collectPage` | Static-only website policy, native local scan, per-page deadline/cancellation and awaited cleanup |
 | `src/evidence.mjs` | `FEATURES`, `baseRow`, `parseBrowser`, `maskText` | Per-provider result schemas, bounded component points/weights and explicit missing values |
 | `src/app-evidence.mjs` | `APP_EVIDENCE`, `REFERENCES` → collector/report | Dated official/technical references, indirect App relevance, browser/site specificity and unverified website heuristics |

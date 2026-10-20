@@ -27,7 +27,6 @@ export function detectionComplete(id,text) {
   if(id==='cleanip')return /(?:^|\n)检测完成\n/.test(text)&&/07 · 本地系统/.test(text)&&/\nIntl 区域设置\n\d+\/6/.test(text);
   if(id==='pingip')return /自动检测完成/.test(text)&&/FULL INSPECTION/.test(text);
   if(id==='amichina')return /再次检查/.test(text)&&/系统与表情代理[^]*?\n得分/.test(text);
-  if(id==='ipbook')return /\n检测失败\n/.test(text)&&/无法获取网络信息/.test(text);
   if(id==='aizx')return /已测\s*9\s*项/.test(text)&&/导出报告/.test(text);
   if(id==='fuckclaude')return /(?:Scan again|重新检测)/.test(text)&&/\n(?:Low risk|Medium risk|High risk|低风险|中风险|高风险)\n/.test(text);
   return false;

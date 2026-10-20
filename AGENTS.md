@@ -6,13 +6,13 @@ DNS, exit comparisons and country eligibility belong to IPQuality, not here.
 ```sh
 cd /Users/zmx/Projects/projects/ccquality
 node src/cli.mjs                 # offline disclosure plan
-node src/cli.mjs --run           # eight candidate sites through ATT
+node src/cli.mjs --run           # seven local-check sites through ATT
 npm run check                   # offline validation
 ```
 
 Default providers: CheckCC, Claude Test, CleanIP, PING IP, AIZX, FuckClaude,
-AmIChinaFlagged and IPBook. Restore the original research candidates without
-restoring IP tests. IPBook stays visible as skipped when it requires an IP query.
+and AmIChinaFlagged. Exclude platforms whose local results require an IP query;
+do not retain skipped-only columns or restore IP tests.
 `--sources id,id` selects a subset from [src/catalog.mjs](src/catalog.mjs).
 The report follows IPQuality's layout: providers are columns, checks are rows.
 Green means the source passed that item, red means it flagged/added points,

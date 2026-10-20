@@ -7,7 +7,6 @@ export const SOURCES = Object.freeze([
   {id:'aizx',name:'AIZX',url:'https://aizx.ai/tools/claude-region',family:'fuckclaude-derived',button:'开始检测',method:'改編 FuckClaude'},
   {id:'fuckclaude',name:'FuckClaude',url:'https://fuck-claude.vercel.app/',family:'fuckclaude',button:'#retest',method:'開源規則',methodUrl:'https://github.com/LinXiaoTao/FuckClaude'},
   {id:'amichina',name:'AmIChinaFlagged',url:'https://amichinaflagged.com/',family:'amichina',button:'开始检查',method:'自訂規則'},
-  {id:'ipbook',name:'IPBook',url:'https://ipbook.net/check/',family:'ipbook',method:'自訂規則'},
 ].map(Object.freeze));
 
 export function selectSources(ids) {

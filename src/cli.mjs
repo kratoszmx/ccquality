@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {selectSources} from './catalog.mjs';
+import {SOURCES,selectSources} from './catalog.mjs';
 import {renderMarkdown,renderTerminal,renderHtml} from './report.mjs';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -12,7 +12,7 @@ try{
     if(args[i]==='--run')live=true;
     else if(args[i]==='--sources'&&args[i+1])selected=args[++i];
     else if(args[i]==='--help'){
-      console.log('CCQuality: node src/cli.mjs [--run] [--sources id,id]\n不帶 --run 僅列出計畫，無網路、無瀏覽器、無 Claude App。\n--run 預設八個來源，最多三頁並行、每站最多 15 秒，使用 ATT；不測 IP。\n正常輸出只有表格；HTML / ANSI / Markdown / JSON 保存在 reports/。');process.exit(0);
+      console.log(`CCQuality: node src/cli.mjs [--run] [--sources id,id]\n不帶 --run 僅列出計畫，無網路、無瀏覽器、無 Claude App。\n--run 預設 ${SOURCES.length} 個來源，最多三頁並行、每站最多 15 秒，使用 ATT；不測 IP。\n正常輸出只有表格；HTML / ANSI / Markdown / JSON 保存在 reports/。`);process.exit(0);
     }else throw Error('invalid_argument');
   }
   const sources=selectSources(selected);

@@ -23,7 +23,7 @@ bounded three-owner execution/order/ATT propagation, individual failure isolatio
 cancellation, stalled-page deadlines, cleanup uncertainty, colors/alignment and
 HTML/Markdown/terminal escaping. They also cover CheckCC's native two-step start,
 rejection of network-dependent totals, AmIChinaFlagged's demonstration scores,
-IPBook's IP prerequisite, App evidence categories and removal of normal-output
+refusal of the removed IPBook ID before live work, App evidence categories and removal of normal-output
 notes/paths. They do not prove live provider access.
 
 Live acceptance, authorized separately from the offline suite:
@@ -39,8 +39,8 @@ GUI. HTML is self-contained with no scripts or external resources; open it only
 if desired. The ANSI file always retains color. JSON includes bounded native
 text, component values, blocked requests and timings; do not publish it.
 
-The default run covers all eight candidates. Seven can provide local results;
-IPBook must remain explicitly skipped while its IP prerequisite is prohibited.
+The default run covers seven providers with independent local results.
+Platforms requiring an IP query before producing results are excluded.
 CheckCC's completed local rows do not mean its blocked full scan completed.
 Per-page durations overlap; do not sum them or promise fixed network latency.
 The latest accepted timing and private evidence directory are in HANDOFF.md.

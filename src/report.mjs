@@ -1,7 +1,7 @@
 import {FEATURES,maskText} from './evidence.mjs';
 import {APP_EVIDENCE,REFERENCES} from './app-evidence.mjs';
 
-const statuses={measured:'本機項完成',partial:'部分結果',unknown:'未知',incomplete:'未完成',timeout:'逾時',unavailable:'不可用',blocked:'被擋',rate_limited:'限流',cancelled:'已取消',not_run:'未執行',requires_ip:'需 IP，略過'};
+const statuses={measured:'本機項完成',partial:'部分結果',unknown:'未知',incomplete:'未完成',timeout:'逾時',unavailable:'不可用',blocked:'被擋',rate_limited:'限流',cancelled:'已取消',not_run:'未執行'};
 const unknown={state:'unknown',label:'—'};
 const cell=(label,state='info',value='',link)=>({label:maskText(label),state,value:maskText(value),link});
 export function matrix(report){
